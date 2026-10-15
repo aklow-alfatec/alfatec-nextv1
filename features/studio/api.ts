@@ -1,4 +1,4 @@
-import type { BlockSpec, GraphJson, GraphMeta, GraphRecord, Issue } from './types';
+import type { BlockSpec, GraphJson, GraphMeta, GraphRecord, GraphVersion, Issue } from './types';
 
 /** All calls go through the Next route handler /api/engine, which adds the server-side secret. */
 const BASE = '/api/engine';
@@ -129,6 +129,7 @@ export const engineApi = {
   create: (p: SavePayload) => call<GraphRecord>('/graphs', { method: 'POST', body: JSON.stringify(p) }),
   update: (id: string, p: Partial<SavePayload>) =>
     call<GraphRecord>(`/graphs/${encodeURIComponent(id)}`, { method: 'PUT', body: JSON.stringify(p) }),
+  versions: (id: string) => call<GraphVersion[]>(`/graphs/${encodeURIComponent(id)}/versions`),
   remove: (id: string) => call<void>(`/graphs/${encodeURIComponent(id)}`, { method: 'DELETE' }),
   queueRun: (body: { graph_id: string; start: string; end: string; params?: Record<string, unknown> }) =>
     call<{ id: string; status: JobStatus }>('/runs', { method: 'POST', body: JSON.stringify(body) }),

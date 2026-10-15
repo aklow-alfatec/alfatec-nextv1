@@ -71,6 +71,17 @@ export interface GraphMeta {
   legacy_pipeline: string | null;
   active: boolean;
   updated_at: string;
+  /** latest saved version (each save that changes the graph adds one) */
+  current_version?: number;
+}
+
+export interface GraphVersion {
+  id: string;
+  version: number;
+  graph_hash: string;
+  note: string | null;
+  created_by: string | null;
+  created_at: string;
 }
 
 export interface GraphRecord extends GraphMeta {

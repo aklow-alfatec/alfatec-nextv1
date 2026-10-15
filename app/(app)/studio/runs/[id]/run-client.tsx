@@ -10,6 +10,7 @@ const ACTIVE = new Set(['queued', 'running', 'stopping']);
 export function RunClient({ id }: { id: string }) {
   const [run, setRun] = useState<RunDetail | null>(null);
   const [graphName, setGraphName] = useState('');
+  const [versionNo, setVersionNo] = useState<number | null>(null);
   const [error, setError] = useState('');
   const [pick, setPick] = useState(0);
 
@@ -40,6 +41,13 @@ export function RunClient({ id }: { id: string }) {
   useEffect(() => {
     if (run?.graph_id && !graphName) engineApi.get(run.graph_id).then((g) => setGraphName(g.name)).catch(() => undefined);
   }, [run?.graph_id, graphName]);
+  useEffect(() => {
+    if (!run?.graph_id || !run.graph_version_id) return;
+    engineApi
+      .versions(run.graph_id)
+      .then((vs) => setVersionNo(vs.find((v) => v.id === run.graph_version_id)?.version ?? null))
+      .catch(() => undefined);
+  }, [run?.graph_id, run?.graph_version_id]);
 
   const strategies = run?.summary?.strategies ?? [];
   const active = run && ACTIVE.has(run.status);
@@ -49,6 +57,7 @@ export function RunClient({ id }: { id: string }) {
         <Link href="/studio/runs" className="text-sm text-fg-2 hover:underline">Runs</Link>
         <span className="text-fg-3">/</span>
         <h1 className="text-xl font-semibold">{graphName || 'Run'}</h1>
+        {versionNo !== null && <span className="rounded-chip bg-line px-2 py-0.5 text-[11px] text-fg-2">graph v{versionNo}</span>}
         {run?.status && <Badge tone={(run.status === 'done' ? 'positive' : run.status === 'failed' ? 'negative' : 'info') as never}>{run.status}</Badge>}
         <span className="num text-sm text-fg-2">
           {run?.start_date?.slice(0, 10)} to {run?.end_date?.slice(0, 10)}

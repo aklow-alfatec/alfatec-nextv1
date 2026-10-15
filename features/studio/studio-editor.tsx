@@ -54,6 +54,7 @@ function EditorInner({ legacyPipelines = [], initialGraphId, onSaved }: StudioEd
 
   const [name, setName] = useState('untitled');
   const [graphId, setGraphId] = useState<string | null>(null);
+  const [version, setVersion] = useState<number | null>(null);
   const [symbol, setSymbol] = useState<string | null>(null);
   const [legacyName, setLegacyName] = useState<string | null>(null);
   const [clock, setClock] = useState<GraphJson['clock']>(EMPTY_CLOCK);
@@ -130,6 +131,7 @@ function EditorInner({ legacyPipelines = [], initialGraphId, onSaved }: StudioEd
       setOutputs(g.outputs ?? []);
       setMeta(g.meta ?? {});
       setGraphId(opts.id ?? null);
+      setVersion(null);
       setName(opts.name ?? g.name ?? 'untitled');
       setSymbol(opts.symbol ?? null);
       setLegacyName(opts.legacy ?? (typeof g.meta?.legacy_pipeline === 'string' ? (g.meta.legacy_pipeline as string) : null));
@@ -297,8 +299,15 @@ function EditorInner({ legacyPipelines = [], initialGraphId, onSaved }: StudioEd
       const rec = graphId ? await engineApi.update(graphId, payload) : await engineApi.create(payload);
       const created = !graphId;
       setGraphId(rec.id);
+      const before = version;
+      setVersion(rec.current_version ?? null);
       onSaved?.(rec.id, created);
-      say('ok', `Saved "${rec.name}".`);
+      say(
+        'ok',
+        rec.current_version && rec.current_version !== before
+          ? `Saved "${rec.name}" as version ${rec.current_version}.`
+          : `Saved "${rec.name}" (graph unchanged, still version ${rec.current_version ?? 1}).`,
+      );
       void refreshSaved();
     });
 
@@ -306,7 +315,8 @@ function EditorInner({ legacyPipelines = [], initialGraphId, onSaved }: StudioEd
     guard('Load', async () => {
       const rec = await engineApi.get(id);
       loadGraph(rec.graph, { id: rec.id, name: rec.name, symbol: rec.symbol, legacy: rec.legacy_pipeline });
-      say('info', `Loaded "${rec.name}".`);
+      setVersion(rec.current_version ?? null);
+      say('info', `Loaded "${rec.name}"${rec.current_version ? ` (version ${rec.current_version})` : ''}.`);
     });
 
   const removeSaved = () =>
@@ -402,6 +412,11 @@ function EditorInner({ legacyPipelines = [], initialGraphId, onSaved }: StudioEd
         <button className={btnPrimary} onClick={save} disabled={!!busy || !name.trim() || nodes.length === 0}>
           {graphId ? 'Save' : 'Save new'}
         </button>
+        {graphId && version !== null && (
+          <span className="rounded-chip bg-line px-2 py-0.5 text-[11px] text-fg-2" title="Each save that changes the graph adds a version; runs record the version they used">
+            v{version}
+          </span>
+        )}
         <select
           className="rounded border border-line-2 bg-bg text-fg px-1 py-1 text-xs"
           value=""
