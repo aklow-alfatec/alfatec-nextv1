@@ -188,6 +188,9 @@ export default function SchemaForm({
         const shown = isSet ? value : def;
         const desc = raw.description ?? f.schema.description;
         const hint = def === undefined ? '' : `default: ${JSON.stringify(def)}`;
+        // a block can offer a starting value (x-template); reset fills it in instead of clearing the field
+        const template = raw['x-template'] ?? f.schema['x-template'];
+        const atTemplate = template !== undefined && JSON.stringify(value) === JSON.stringify(template);
         return (
           <div key={key}>
             <div className="flex items-center justify-between">
@@ -196,9 +199,14 @@ export default function SchemaForm({
                 {required.has(key) && <span className="text-negative"> *</span>}
                 <span className="ml-1 font-normal text-fg-3">{key}</span>
               </label>
-              {isSet && (
-                <button type="button" className="text-[10px] text-accent hover:underline" onClick={() => set(key, undefined)}>
-                  reset
+              {(isSet || template !== undefined) && !atTemplate && (
+                <button
+                  type="button"
+                  className="text-[10px] text-accent hover:underline"
+                  title={template !== undefined ? 'Replace with the template' : undefined}
+                  onClick={() => set(key, template !== undefined ? structuredClone(template) : undefined)}
+                >
+                  {template !== undefined ? 'reset to template' : 'reset'}
                 </button>
               )}
             </div>
