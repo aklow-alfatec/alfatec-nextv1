@@ -20,6 +20,7 @@ import Palette, { DRAG_MIME } from './palette';
 import EngineNodeView from './engine-node';
 import SchemaForm from './schema-form';
 import { ApiError, engineApi, type PreviewResult } from './api';
+import { StrategyResult } from './results';
 import { flowToGraph, graphToFlow } from './convert';
 import {
   TIMEFRAMES,
@@ -70,6 +71,8 @@ function EditorInner({ legacyPipelines = [], initialGraphId, onSaved }: StudioEd
   const [barsText, setBarsText] = useState('');
   const [preview, setPreview] = useState<PreviewResult | null>(null);
   const [previewError, setPreviewError] = useState('');
+  const [resultsOpen, setResultsOpen] = useState(true);
+  const [resultIdx, setResultIdx] = useState(0);
 
   const wrapper = useRef<HTMLDivElement>(null);
   const { screenToFlowPosition, fitView } = useReactFlow();
@@ -355,6 +358,8 @@ function EditorInner({ legacyPipelines = [], initialGraphId, onSaved }: StudioEd
       try {
         const r = await engineApi.runPreview({ graph: currentGraph(), start: runStart, end: runEnd, bars });
         setPreview(r);
+        setResultIdx(0);
+        setResultsOpen(true);
         if (r.warnings?.length) setIssues((cur) => [...cur.filter((i) => i.level !== 'warning'), ...r.warnings]);
       } catch (e) {
         if (e instanceof ApiError && e.status === 501) {
@@ -367,6 +372,14 @@ function EditorInner({ legacyPipelines = [], initialGraphId, onSaved }: StudioEd
           } else setPreviewError(e.message);
         } else throw e;
       }
+    });
+
+  const queueBacktest = () =>
+    guard('Queue backtest', async () => {
+      if (!graphId) return say('info', 'Save the graph first: a full backtest runs the saved version.');
+      const r = await engineApi.queueRun({ graph_id: graphId, start: runStart, end: runEnd });
+      say('ok', 'Backtest queued. Opening it in a new tab.');
+      window.open(`/studio/runs/${r.id}`, '_blank');
     });
 
   // ---- render ----------------------------------------------------------------------------------
@@ -505,6 +518,8 @@ function EditorInner({ legacyPipelines = [], initialGraphId, onSaved }: StudioEd
             )}
             {tab === 'run' && (
               <RunPanel
+                onQueue={queueBacktest}
+                canQueue={!!graphId}
                 start={runStart}
                 end={runEnd}
                 setStart={setRunStart}
@@ -521,6 +536,35 @@ function EditorInner({ legacyPipelines = [], initialGraphId, onSaved }: StudioEd
           </div>
         </aside>
       </div>
+
+      {/* strategy results of the last preview */}
+      {preview?.strategies && preview.strategies.length > 0 && (
+        <section className="shrink-0 rounded-md border border-line bg-surface">
+          <header className="flex items-center gap-2 border-b border-line px-3 py-1.5 text-xs">
+            <button className="font-semibold text-fg" onClick={() => setResultsOpen((o) => !o)}>
+              {resultsOpen ? '▾' : '▸'} Backtest results
+            </button>
+            <span className="text-fg-3">
+              {runStart} to {runEnd} · preview, not saved
+            </span>
+            {preview.strategies.length > 1 && (
+              <select className="ml-2 rounded border border-line-2 bg-bg px-1 py-0.5" value={resultIdx} onChange={(e) => setResultIdx(Number(e.target.value))}>
+                {preview.strategies.map((s, k) => (
+                  <option key={s.node} value={k}>{s.node}</option>
+                ))}
+              </select>
+            )}
+            <button className="ml-auto text-fg-3 hover:text-fg" onClick={() => setPreview(null)} title="Close results">
+              ✕
+            </button>
+          </header>
+          {resultsOpen && (
+            <div className="max-h-[52vh] overflow-y-auto p-3">
+              <StrategyResult report={preview.strategies[Math.min(resultIdx, preview.strategies.length - 1)]} chartHeight={240} />
+            </div>
+          )}
+        </section>
+      )}
     </div>
   );
 }
@@ -693,11 +737,15 @@ function RunPanel({
   barsText,
   setBarsText,
   onRun,
+  onQueue,
+  canQueue,
   busy,
   disabled,
   result,
   error,
 }: {
+  onQueue: () => void;
+  canQueue: boolean;
   start: string;
   end: string;
   setStart: (v: string) => void;
@@ -737,6 +785,20 @@ function RunPanel({
       <button className="rounded bg-accent px-3 py-1 font-medium text-accent-fg hover:opacity-90 disabled:opacity-50" onClick={onRun} disabled={busy || disabled}>
         Run preview
       </button>
+      <button
+        className="ml-2 rounded border border-line-2 bg-raised px-3 py-1 font-medium text-fg hover:bg-line disabled:opacity-50"
+        onClick={onQueue}
+        disabled={busy || disabled}
+        title={canQueue ? 'Queue a saved, full backtest (opens in a new tab)' : 'Save the graph first'}
+      >
+        Run full backtest
+      </button>
+      <p className="text-[10px] text-fg-3">
+        Preview runs the graph on screen as it is now. Full backtest runs the last saved version in the background and keeps the result under Runs.
+      </p>
+      {result?.strategies && result.strategies.length > 0 && (
+        <p className="rounded bg-info/10 p-2 text-info">Strategy results are shown below the canvas.</p>
+      )}
       {error && <p className="rounded bg-warning/10 p-2 text-warning">{error}</p>}
       {result && (
         <div>
