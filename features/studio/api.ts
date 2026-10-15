@@ -106,6 +106,53 @@ export interface RunRow {
   finished_at: string | null;
 }
 
+export interface ParamDim {
+  values?: (number | string)[];
+  low?: number;
+  high?: number;
+  step?: number;
+}
+
+export interface ExperimentSpecBody {
+  param_space: Record<string, ParamDim>;
+  start: string;
+  end: string;
+  split: { kind: 'rolling' | 'anchored'; train: string; test: string; purge?: string };
+  objective: { ref: string; series: 'equity' | 'returns'; metric: string; direction: 'maximize' | 'minimize' };
+  optimiser: { kind: 'grid' | 'random' | 'optuna'; n_trials?: number; seed?: number };
+}
+
+export interface FoldRow {
+  fold_no: number;
+  train_start: string;
+  train_end: string;
+  test_start: string;
+  test_end: string;
+  best_params: Record<string, unknown> | null;
+  train_metrics: Record<string, number> | null;
+  test_metrics: Record<string, number> | null;
+}
+
+export interface ExperimentRow {
+  id: string;
+  graph_id: string;
+  name: string | null;
+  status: JobStatus;
+  summary: Record<string, unknown> | null;
+  best_params: Record<string, unknown> | null;
+  progress: RunRow['progress'];
+  error: string | null;
+  created_at: string;
+  finished_at: string | null;
+  spec: Partial<ExperimentSpecBody>;
+}
+
+export interface ExperimentDetail extends ExperimentRow {
+  folds: FoldRow[];
+  best_run_id: string | null;
+  oos_curve: { index: string[]; equity: number[]; drawdown: number[]; benchmark: (number | null)[] | null } | null;
+}
+
 export interface RunDetail extends RunRow {
   params: Record<string, unknown> | null;
   exports?: Record<string, string | null>;
@@ -117,6 +164,8 @@ export interface SavePayload {
   symbol?: string | null;
   legacy_pipeline?: string | null;
   active?: boolean;
+  /** saved with the new version when the graph changed */
+  note?: string;
 }
 
 export const engineApi = {
@@ -140,6 +189,16 @@ export const engineApi = {
   run: (id: string) => call<RunDetail>(`/runs/${encodeURIComponent(id)}?include_series=false&events_limit=0`),
   runStatus: (id: string) => call<{ id: string; status: JobStatus; progress: RunRow['progress']; error: string | null }>(`/runs/${encodeURIComponent(id)}/status`),
   stopRun: (id: string) => call<unknown>(`/runs/${encodeURIComponent(id)}/stop`, { method: 'POST' }),
+  queueExperiment: (body: { graph_id: string; spec: ExperimentSpecBody; name?: string }) =>
+    call<{ id: string; status: JobStatus }>('/experiments', { method: 'POST', body: JSON.stringify(body) }),
+  experiments: (q: { graph_id?: string; limit?: number } = {}) => {
+    const s = new URLSearchParams(Object.entries(q).filter(([, v]) => v !== undefined && v !== '').map(([k, v]) => [k, String(v)]));
+    return call<ExperimentRow[]>(`/experiments${s.toString() ? `?${s}` : ''}`);
+  },
+  experiment: (id: string) => call<ExperimentDetail>(`/experiments/${encodeURIComponent(id)}`),
+  experimentStatus: (id: string) =>
+    call<{ id: string; status: JobStatus; progress: RunRow['progress']; error: string | null }>(`/experiments/${encodeURIComponent(id)}/status`),
+  stopExperiment: (id: string) => call<unknown>(`/experiments/${encodeURIComponent(id)}/stop`, { method: 'POST' }),
   convertLegacy: (pipeline: string) =>
     call<{ graph: GraphJson; hash: string; name: string; symbol: string | null }>(
       `/graphs/convert-legacy/${encodeURIComponent(pipeline)}`,

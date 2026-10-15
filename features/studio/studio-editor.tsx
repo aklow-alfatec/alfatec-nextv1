@@ -535,6 +535,7 @@ function EditorInner({ legacyPipelines = [], initialGraphId, onSaved }: StudioEd
               <RunPanel
                 onQueue={queueBacktest}
                 canQueue={!!graphId}
+                graphIdForTune={graphId}
                 start={runStart}
                 end={runEnd}
                 setStart={setRunStart}
@@ -754,6 +755,7 @@ function RunPanel({
   onRun,
   onQueue,
   canQueue,
+  graphIdForTune,
   busy,
   disabled,
   result,
@@ -761,6 +763,7 @@ function RunPanel({
 }: {
   onQueue: () => void;
   canQueue: boolean;
+  graphIdForTune?: string | null;
   start: string;
   end: string;
   setStart: (v: string) => void;
@@ -808,6 +811,11 @@ function RunPanel({
       >
         Run full backtest
       </button>
+      {canQueue && graphIdForTune && (
+        <a className="ml-2 text-accent hover:underline" href={`/studio/experiments/new?graph=${graphIdForTune}`}>
+          Tune with walk-forward
+        </a>
+      )}
       <p className="text-[10px] text-fg-3">
         Preview runs the graph on screen as it is now. Full backtest runs the last saved version in the background and keeps the result under Runs.
       </p>
