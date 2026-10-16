@@ -220,6 +220,8 @@ export const engineApi = {
   update: (id: string, p: Partial<SavePayload>) =>
     call<GraphRecord>(`/graphs/${encodeURIComponent(id)}`, { method: 'PUT', body: JSON.stringify(p) }),
   versions: (id: string) => call<GraphVersion[]>(`/graphs/${encodeURIComponent(id)}/versions`),
+  version: (id: string, n: number) =>
+    call<GraphVersion & { graph: GraphJson }>(`/graphs/${encodeURIComponent(id)}/versions/${n}`),
   remove: (id: string) => call<void>(`/graphs/${encodeURIComponent(id)}`, { method: 'DELETE' }),
   queueRun: (body: { graph_id: string; start: string; end: string; params?: Record<string, unknown> }) =>
     call<{ id: string; status: JobStatus }>('/runs', { method: 'POST', body: JSON.stringify(body) }),

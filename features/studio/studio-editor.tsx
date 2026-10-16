@@ -21,6 +21,7 @@ import EngineNodeView from './engine-node';
 import SchemaForm from './schema-form';
 import { ApiError, engineApi, type PreviewResult } from './api';
 import { StrategyResult } from './results';
+import HistoryPanel from './history-panel';
 import { flowToGraph, graphToFlow } from './convert';
 import {
   TIMEFRAMES,
@@ -34,6 +35,7 @@ import {
   type EngineNode,
   type GraphJson,
   type GraphMeta,
+  type GraphRecord,
   type Issue,
 } from './types';
 
@@ -41,7 +43,7 @@ const nodeTypes = { engine: EngineNodeView };
 
 const EMPTY_CLOCK: GraphJson['clock'] = { timeframe: '1W', anchor: 'FRI' };
 
-type Tab = 'props' | 'issues' | 'run';
+type Tab = 'props' | 'issues' | 'run' | 'history';
 type Notice = { kind: 'ok' | 'error' | 'info'; text: string } | null;
 
 function EditorInner({ legacyPipelines = [], initialGraphId, onSaved }: StudioEditorProps) {
@@ -55,6 +57,8 @@ function EditorInner({ legacyPipelines = [], initialGraphId, onSaved }: StudioEd
   const [name, setName] = useState('untitled');
   const [graphId, setGraphId] = useState<string | null>(null);
   const [version, setVersion] = useState<number | null>(null);
+  const [saveNote, setSaveNote] = useState('');
+  const [historyKey, setHistoryKey] = useState(0);
   const [symbol, setSymbol] = useState<string | null>(null);
   const [legacyName, setLegacyName] = useState<string | null>(null);
   const [clock, setClock] = useState<GraphJson['clock']>(EMPTY_CLOCK);
@@ -295,13 +299,15 @@ function EditorInner({ legacyPipelines = [], initialGraphId, onSaved }: StudioEd
   const save = () =>
     guard('Save', async () => {
       const graph = currentGraph();
-      const payload = { name, graph, symbol, legacy_pipeline: legacyName };
+      const payload = { name, graph, symbol, legacy_pipeline: legacyName, ...(saveNote.trim() ? { note: saveNote.trim() } : {}) };
       const rec = graphId ? await engineApi.update(graphId, payload) : await engineApi.create(payload);
       const created = !graphId;
       setGraphId(rec.id);
       const before = version;
       setVersion(rec.current_version ?? null);
       onSaved?.(rec.id, created);
+      setSaveNote('');
+      setHistoryKey((k) => k + 1);
       say(
         'ok',
         rec.current_version && rec.current_version !== before
@@ -318,6 +324,21 @@ function EditorInner({ legacyPipelines = [], initialGraphId, onSaved }: StudioEd
       setVersion(rec.current_version ?? null);
       say('info', `Loaded "${rec.name}"${rec.current_version ? ` (version ${rec.current_version})` : ''}.`);
     });
+
+  const openVersion = (g: GraphJson, n: number) => {
+    const keep = version;
+    loadGraph(g, { id: graphId, name, symbol, legacy: legacyName });
+    setVersion(keep);
+    setTab('history');
+    say('info', `Opened version ${n} on the canvas (not saved). Save to make it the current version, or reload the graph to discard.`);
+  };
+
+  const restored = (rec: GraphRecord) => {
+    loadGraph(rec.graph, { id: rec.id, name: rec.name, symbol: rec.symbol, legacy: rec.legacy_pipeline });
+    setVersion(rec.current_version ?? null);
+    setHistoryKey((k) => k + 1);
+    say('ok', `Restored as version ${rec.current_version}.`);
+  };
 
   const removeSaved = () =>
     guard('Delete', async () => {
@@ -413,9 +434,23 @@ function EditorInner({ legacyPipelines = [], initialGraphId, onSaved }: StudioEd
           {graphId ? 'Save' : 'Save new'}
         </button>
         {graphId && version !== null && (
-          <span className="rounded-chip bg-line px-2 py-0.5 text-[11px] text-fg-2" title="Each save that changes the graph adds a version; runs record the version they used">
+          <button
+            className="rounded-chip bg-line px-2 py-0.5 text-[11px] text-fg-2 hover:bg-line-2"
+            title="Each save that changes the graph adds a version; runs record the version they used. Click for the history."
+            onClick={() => setTab('history')}
+          >
             v{version}
-          </span>
+          </button>
+        )}
+        {graphId && (
+          <input
+            value={saveNote}
+            onChange={(e) => setSaveNote(e.target.value)}
+            placeholder="change note (optional)"
+            maxLength={500}
+            className="w-44 rounded border border-line-2 bg-bg px-2 py-1 text-xs text-fg"
+            title="Saved with the new version when the graph changed"
+          />
         )}
         <select
           className="rounded border border-line-2 bg-bg text-fg px-1 py-1 text-xs"
@@ -497,13 +532,13 @@ function EditorInner({ legacyPipelines = [], initialGraphId, onSaved }: StudioEd
         {/* right panel */}
         <aside className="flex w-80 shrink-0 flex-col rounded-md border border-line bg-surface">
           <div className="flex border-b border-line text-xs">
-            {(['props', 'issues', 'run'] as Tab[]).map((t) => (
+            {(['props', 'issues', 'run', 'history'] as Tab[]).map((t) => (
               <button
                 key={t}
                 onClick={() => setTab(t)}
                 className={`flex-1 px-2 py-2 font-medium ${tab === t ? 'border-b-2 border-accent text-fg' : 'text-fg-2 hover:bg-line'}`}
               >
-                {t === 'props' ? 'Properties' : t === 'issues' ? `Issues${issues.length ? ` (${issues.length})` : ''}` : 'Run preview'}
+                {t === 'props' ? 'Properties' : t === 'issues' ? `Issues${issues.length ? ` (${issues.length})` : ''}` : t === 'run' ? 'Run' : 'History'}
               </button>
             ))}
           </div>
@@ -529,6 +564,16 @@ function EditorInner({ legacyPipelines = [], initialGraphId, onSaved }: StudioEd
                     setSelectedId(id);
                   }
                 }}
+              />
+            )}
+            {tab === 'history' && (
+              <HistoryPanel
+                graphId={graphId}
+                current={currentGraph()}
+                currentVersion={version}
+                refreshKey={historyKey}
+                onOpen={openVersion}
+                onRestored={restored}
               />
             )}
             {tab === 'run' && (
