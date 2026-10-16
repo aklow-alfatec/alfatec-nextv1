@@ -153,6 +153,29 @@ export interface ExperimentDetail extends ExperimentRow {
   oos_curve: { index: string[]; equity: number[]; drawdown: number[]; benchmark: (number | null)[] | null } | null;
 }
 
+export type Num = number | null;
+export interface EdgeStatRow { n: Num; n_bars: Num; active_share: Num; win_rate: Num; base_rate: Num; lift: Num; avg_win: Num; avg_loss: Num; payoff: Num; expectancy: Num; kelly: Num; t_stat: Num }
+export interface EdgeStatsResult {
+  n_ticks: number;
+  edges: { name: string; stats: EdgeStatRow; stability: { period: string; n: Num; win_rate: Num; base_rate: Num; lift: Num }[]; share_positive_lift: Num }[];
+}
+export interface EdgeOverlapResult { names: string[]; co_occurrence: Num[][]; return_corr: Num[][] }
+export interface EdgeStackResult {
+  n_edges: number;
+  curve: { n_active: number; n: number; win_rate: Num; base_rate: Num; lift: Num; expectancy: Num; p_value: Num; p_holm: Num }[];
+  at_least_k: (EdgeStatRow & { k: number })[];
+}
+export interface KellyRow { fraction?: number; label?: string; multiple?: number; cap?: Num; cagr: Num; max_drawdown: Num; final: Num; mean_fraction: Num }
+export interface KellyResult {
+  k: number;
+  weeks_in_position: number;
+  curve: KellyRow[];
+  optimal: KellyRow;
+  estimated: KellyRow[];
+  ruin: { label: string; risk_of_ruin: Num; prob_loss: Num; max_drawdown_p05: Num; final_equity_p50: Num }[];
+  settings: Record<string, unknown>;
+}
+
 export interface RunDetail extends RunRow {
   params: Record<string, unknown> | null;
   exports?: Record<string, string | null>;
@@ -199,6 +222,11 @@ export const engineApi = {
   experimentStatus: (id: string) =>
     call<{ id: string; status: JobStatus; progress: RunRow['progress']; error: string | null }>(`/experiments/${encodeURIComponent(id)}/status`),
   stopExperiment: (id: string) => call<unknown>(`/experiments/${encodeURIComponent(id)}/stop`, { method: 'POST' }),
+  // Edge Lab / Kelly (nothing is stored; see app/api/endpoints/edges.py)
+  edgeStats: (body: unknown) => call<EdgeStatsResult>('/edges/stats', { method: 'POST', body: JSON.stringify(body) }),
+  edgeOverlap: (body: unknown) => call<EdgeOverlapResult>('/edges/overlap', { method: 'POST', body: JSON.stringify(body) }),
+  edgeStack: (body: unknown) => call<EdgeStackResult>('/edges/stack', { method: 'POST', body: JSON.stringify(body) }),
+  edgeKelly: (body: unknown) => call<KellyResult>('/edges/kelly', { method: 'POST', body: JSON.stringify(body) }),
   convertLegacy: (pipeline: string) =>
     call<{ graph: GraphJson; hash: string; name: string; symbol: string | null }>(
       `/graphs/convert-legacy/${encodeURIComponent(pipeline)}`,
