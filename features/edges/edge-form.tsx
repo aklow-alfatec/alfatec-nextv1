@@ -2,6 +2,7 @@
 
 import { Input, Select } from '@/components/ui';
 import { INDICATORS, type EdgeRule, type EdgeSet } from './edge-set';
+import { GraphEdgeForm } from './graph-edge-form';
 
 const cell = 'rounded border border-line-2 bg-bg px-1 py-0.5 text-xs';
 
@@ -93,6 +94,10 @@ export function EdgeForm({ set, onChange }: { set: EdgeSet; onChange: (s: EdgeSe
       >
         + add edge
       </button>
+      <div className="border-t border-line pt-3">
+        <h3 className="mb-1 text-xs font-semibold text-fg-2">Edges from saved graphs</h3>
+        <GraphEdgeForm set={set} onChange={onChange} />
+      </div>
     </div>
   );
 }

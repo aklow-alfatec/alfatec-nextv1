@@ -10,6 +10,19 @@ export interface EdgeRule {
   value: number;
 }
 
+/** An output of a saved graph used as an edge; numeric outputs get one edge per threshold value. */
+export interface GraphEdgeRule {
+  graphId: string;
+  graphName: string;
+  version: number | null;      // null = current version
+  ref: string;                 // node.port in that graph
+  label: string;
+  dtype: 'float' | 'int' | 'bool';
+  op: 'gt' | 'ge' | 'lt' | 'le' | 'eq';
+  values: number[];
+  pinned: number | null;       // the value used in overlap / stacking / Kelly
+}
+
 export interface EdgeSet {
   asset: string;               // the outcome is measured on this asset's close
   timeframe: '1D' | '1W' | '1M';
@@ -18,6 +31,7 @@ export interface EdgeSet {
   horizon: number;             // bars ahead
   direction: 'long' | 'short';
   rules: EdgeRule[];
+  graphEdges: GraphEdgeRule[];
 }
 
 export const INDICATORS: Record<EdgeRule['indicator'], { label: string; block?: string; port?: string; hasPeriod: boolean; hasValue: boolean }> = {
@@ -41,6 +55,7 @@ export const DEFAULT_SET: EdgeSet = {
     { name: 'above 40-bar average', symbol: 'GOLD', indicator: 'sma', period: 40, op: 'gt', value: 0 },
     { name: 'COT managed money z < -1', symbol: 'COT_GOLD_MM_NET', indicator: 'zscore', period: 52, op: 'lt', value: -1 },
   ],
+  graphEdges: [],
 };
 
 const KEY = 'alfatec.edge-set.v1';
@@ -48,7 +63,11 @@ const KEY = 'alfatec.edge-set.v1';
 export function loadEdgeSet(): EdgeSet {
   try {
     const raw = window.localStorage.getItem(KEY);
-    if (raw) return { ...DEFAULT_SET, ...(JSON.parse(raw) as Partial<EdgeSet>) };
+    // v1 sets (rules only) load as they are: graphEdges defaults to []
+    if (raw) {
+      const s = { ...DEFAULT_SET, ...(JSON.parse(raw) as Partial<EdgeSet>) };
+      return { ...s, graphEdges: s.graphEdges ?? [] };
+    }
   } catch {
     /* private window / blocked storage: fall back to the default */
   }
@@ -110,7 +129,29 @@ export function edgeRequest(set: EdgeSet) {
     end: set.end,
     price_ref: priceRef,
     edges: refs,
+    graph_edges: (set.graphEdges ?? []).map((g) => ({
+      graph_id: g.graphId,
+      version: g.version ?? undefined,
+      ref: g.ref,
+      label: g.label || g.ref,
+      op: g.op,
+      values: g.dtype === 'bool' ? [] : g.values,
+      pinned: g.dtype === 'bool' || g.pinned === null ? undefined : g.pinned,
+    })),
     outcome: { kind: 'horizon', bars: set.horizon },
     direction: set.direction,
   };
+}
+
+/** "40, 50, 60" or "40-80/10" (from-to/step) -> sorted unique numbers. */
+export function parseValues(text: string): number[] {
+  const m = text.trim().match(/^(-?[\d.]+)\s*-\s*(-?[\d.]+)\s*\/\s*([\d.]+)$/);
+  let out: number[] = [];
+  if (m) {
+    const [lo, hi, step] = [Number(m[1]), Number(m[2]), Number(m[3])];
+    if (step > 0) for (let v = lo; v <= hi + 1e-9 && out.length < 200; v += step) out.push(Number(v.toFixed(10)));
+  } else {
+    out = text.split(/[,\s]+/).filter(Boolean).map(Number).filter((v) => Number.isFinite(v));
+  }
+  return Array.from(new Set(out)).sort((a, b) => a - b);
 }

@@ -155,15 +155,32 @@ export interface ExperimentDetail extends ExperimentRow {
 
 export type Num = number | null;
 export interface EdgeStatRow { n: Num; n_bars: Num; active_share: Num; win_rate: Num; base_rate: Num; lift: Num; avg_win: Num; avg_loss: Num; payoff: Num; expectancy: Num; kelly: Num; t_stat: Num }
+export interface GraphUsed { id: string; name: string; version: number | null; version_id: string | null; prefix: string }
+export interface EdgeStatsRow {
+  name: string;
+  group: string | null;
+  value: number | null;
+  in_stack: boolean;
+  stats: EdgeStatRow;
+  p_value: Num;
+  p_holm: Num;
+  stability: { period: string; n: Num; win_rate: Num; base_rate: Num; lift: Num }[];
+  share_positive_lift: Num;
+}
 export interface EdgeStatsResult {
   n_ticks: number;
-  edges: { name: string; stats: EdgeStatRow; stability: { period: string; n: Num; win_rate: Num; base_rate: Num; lift: Num }[]; share_positive_lift: Num }[];
+  n_tests: number;
+  effective_n_divisor: number;
+  graphs: GraphUsed[];
+  edges: EdgeStatsRow[];
 }
-export interface EdgeOverlapResult { names: string[]; co_occurrence: Num[][]; return_corr: Num[][] }
+export interface EdgeOverlapResult { names: string[]; co_occurrence: Num[][]; return_corr: Num[][]; ignored?: string[] }
 export interface EdgeStackResult {
   n_edges: number;
   curve: { n_active: number; n: number; win_rate: Num; base_rate: Num; lift: Num; expectancy: Num; p_value: Num; p_holm: Num }[];
   at_least_k: (EdgeStatRow & { k: number })[];
+  n_tests?: number;
+  ignored?: string[];
 }
 export interface KellyRow { fraction?: number; label?: string; multiple?: number; cap?: Num; cagr: Num; max_drawdown: Num; final: Num; mean_fraction: Num }
 export interface KellyResult {
@@ -174,6 +191,7 @@ export interface KellyResult {
   estimated: KellyRow[];
   ruin: { label: string; risk_of_ruin: Num; prob_loss: Num; max_drawdown_p05: Num; final_equity_p50: Num }[];
   settings: Record<string, unknown>;
+  ignored?: string[];
 }
 
 export interface RunDetail extends RunRow {

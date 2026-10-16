@@ -1,10 +1,10 @@
 'use client';
 import Link from 'next/link';
-import { useEffect, useState } from 'react';
+import { Fragment, useEffect, useState } from 'react';
 import { Button, Card } from '@/components/ui';
 import { EdgeForm } from '@/features/edges/edge-form';
 import { DEFAULT_SET, edgeRequest, loadEdgeSet, saveEdgeSet, type EdgeSet } from '@/features/edges/edge-set';
-import { engineApi, type EdgeOverlapResult, type EdgeStackResult, type EdgeStatsResult, type Num } from '@/features/studio/api';
+import { engineApi, type EdgeOverlapResult, type EdgeStackResult, type EdgeStatsResult, type EdgeStatsRow, type Num } from '@/features/studio/api';
 
 const pct = (v: Num | undefined, d = 1) => (v === null || v === undefined || !Number.isFinite(v) ? '-' : `${(v * 100).toFixed(d)}%`);
 const num = (v: Num | undefined, d = 2) => (v === null || v === undefined || !Number.isFinite(v) ? '-' : v.toFixed(d));
@@ -31,11 +31,57 @@ function LiftBars({ rows }: { rows: { period: string; n: Num; lift: Num }[] }) {
   );
 }
 
+/** Win rate against the threshold for one swept graph edge, base rate dashed, occurrences as bars. */
+function ThresholdCurve({ title, rows }: { title: string; rows: EdgeStatsRow[] }) {
+  const pts = rows.filter((r) => r.value !== null).sort((a, b) => (a.value as number) - (b.value as number));
+  if (pts.length < 2) return null;
+  const W = 360;
+  const H = 150;
+  const base = pts[0].stats.base_rate ?? 0;
+  const wrs = pts.map((r) => r.stats.win_rate).filter((v): v is number => v !== null);
+  const lo = Math.max(0, Math.min(base, ...wrs) - 0.05);
+  const hi = Math.min(1, Math.max(base, ...wrs) + 0.05);
+  const maxN = Math.max(1, ...pts.map((r) => r.stats.n ?? 0));
+  const xs = pts.map((r) => r.value as number);
+  const X = (v: number) => 30 + ((v - xs[0]) / (xs[xs.length - 1] - xs[0] || 1)) * (W - 40);
+  const Y = (v: number) => 8 + (1 - (v - lo) / (hi - lo || 1)) * (H - 50);
+  const line = pts.filter((r) => r.stats.win_rate !== null).map((r, i) => `${i ? 'L' : 'M'}${X(r.value as number)},${Y(r.stats.win_rate as number)}`).join('');
+  return (
+    <div>
+      <div className="mb-1 text-xs font-medium">{title}</div>
+      <svg viewBox={`0 0 ${W} ${H}`} className="w-full max-w-md">
+        {pts.map((r) => {
+          const h = ((r.stats.n ?? 0) / maxN) * 26;
+          return <rect key={r.name} x={X(r.value as number) - 5} y={H - 18 - h} width={10} height={h} className="fill-line" />;
+        })}
+        <line x1={30} x2={W - 10} y1={Y(base)} y2={Y(base)} className="stroke-fg-3" strokeDasharray="4 3" />
+        <text x={W - 10} y={Y(base) - 3} textAnchor="end" className="fill-fg-3 text-[9px]">base {pct(base)}</text>
+        <path d={line} fill="none" className="stroke-accent" strokeWidth={2} />
+        {pts.map((r) =>
+          r.stats.win_rate === null ? null : (
+            <circle key={r.name} cx={X(r.value as number)} cy={Y(r.stats.win_rate)} r={3.5}
+                    className={(r.p_holm ?? 1) < 0.05 ? 'fill-positive' : 'fill-surface stroke-accent'}>
+              <title>{`${r.name}: win ${pct(r.stats.win_rate)}, lift ${pct(r.stats.lift)}, n ${r.stats.n ?? 0}, adjusted p ${num(r.p_holm, 3)}`}</title>
+            </circle>
+          ),
+        )}
+        {pts.map((r) => (
+          <text key={r.name} x={X(r.value as number)} y={H - 4} textAnchor="middle" className="fill-fg-3 text-[9px]">{r.value}</text>
+        ))}
+        <text x={2} y={Y(hi) + 8} className="fill-fg-3 text-[9px]">{pct(hi, 0)}</text>
+        <text x={2} y={Y(lo)} className="fill-fg-3 text-[9px]">{pct(lo, 0)}</text>
+      </svg>
+      <p className="text-[10px] text-fg-3">Line = win rate at each threshold; bars = occurrences; a filled dot = adjusted p below 0.05.</p>
+    </div>
+  );
+}
+
 export default function EdgeLabPage() {
   const [set, setSet] = useState<EdgeSet>(DEFAULT_SET);
   const [stats, setStats] = useState<EdgeStatsResult | null>(null);
   const [overlap, setOverlap] = useState<EdgeOverlapResult | null>(null);
   const [stack, setStack] = useState<EdgeStackResult | null>(null);
+  const [comboNote, setComboNote] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
 
@@ -49,11 +95,13 @@ export default function EdgeLabPage() {
     setError('');
     setBusy(true);
     try {
-      const body = { ...edgeRequest(set), n_tests: set.rules.length };
-      const [a, b, c] = await Promise.all([engineApi.edgeStats(body), engineApi.edgeOverlap(body), engineApi.edgeStack(body)]);
-      setStats(a);
-      setOverlap(b);
-      setStack(c);
+      const body = edgeRequest(set);
+      setStats(await engineApi.edgeStats(body));
+      // overlap and stacking need edges that can be combined (rules, bool outputs, pinned sweep values)
+      const [b, c] = await Promise.allSettled([engineApi.edgeOverlap(body), engineApi.edgeStack(body)]);
+      setOverlap(b.status === 'fulfilled' ? b.value : null);
+      setStack(c.status === 'fulfilled' ? c.value : null);
+      setComboNote(c.status === 'rejected' ? (c.reason as Error).message : '');
     } catch (e) {
       setError((e as Error).message);
     } finally {
@@ -70,7 +118,7 @@ export default function EdgeLabPage() {
         <Link href="/studio/kelly" className="ml-auto"><Button>Size these edges (Kelly)</Button></Link>
       </div>
 
-      <Card title="Edges" actions={<Button variant="primary" onClick={evaluate} disabled={busy || !set.rules.length}>{busy ? 'Evaluating...' : 'Evaluate'}</Button>}>
+      <Card title="Edges" actions={<Button variant="primary" onClick={evaluate} disabled={busy || (!set.rules.length && !(set.graphEdges ?? []).some((g) => g.graphId && g.ref))}>{busy ? 'Evaluating...' : 'Evaluate'}</Button>}>
         <EdgeForm set={set} onChange={change} />
         {error && <p className="mt-2 text-xs text-negative">{error}</p>}
       </Card>
@@ -81,15 +129,26 @@ export default function EdgeLabPage() {
             <table className="w-full text-xs">
               <thead className="text-fg-3">
                 <tr>
-                  {['Edge', 'Occurrences', 'Active', 'Win rate', 'Lift', 'Payoff', 'Expectancy', 'Kelly', 't-stat', 'Years with positive lift', 'Lift by year'].map((h, i) => (
-                    <th key={h} className={`p-1 font-medium ${i === 0 || i === 10 ? 'text-left' : 'text-right'}`}>{h}</th>
+                  {['Edge', 'Occurrences', 'Active', 'Win rate', 'Lift', 'Payoff', 'Expectancy', 'Kelly', 'p', 'Adjusted p', 'Years with positive lift', 'Lift by year'].map((h, i) => (
+                    <th key={h} className={`p-1 font-medium ${i === 0 || i === 11 ? 'text-left' : 'text-right'}`}>{h}</th>
                   ))}
                 </tr>
               </thead>
               <tbody>
-                {stats.edges.map((e) => (
-                  <tr key={e.name} className="border-t border-line">
-                    <td className="p-1 font-medium">{e.name}</td>
+                {stats.edges.map((e, i) => {
+                  const first = e.group !== null && stats.edges[i - 1]?.group !== e.group;
+                  return (
+                  <Fragment key={e.name}>
+                  {first && (
+                    <tr className="border-t border-line bg-raised/50">
+                      <td colSpan={12} className="p-1 font-semibold">{e.group}</td>
+                    </tr>
+                  )}
+                  <tr className={`border-t border-line ${(e.p_holm ?? 1) < 0.05 ? 'bg-positive/5' : ''}`}>
+                    <td className={`p-1 ${e.group ? 'pl-4 text-fg-2' : 'font-medium'}`}>
+                      {e.group && e.value !== null ? e.name.slice(e.group.length + 1) : e.name}
+                      {e.group && e.in_stack && e.value !== null && <span className="ml-1 rounded-chip bg-accent/15 px-1 text-[10px] text-accent">in stack</span>}
+                    </td>
                     <td className="num p-1 text-right">{e.stats.n ?? 0}</td>
                     <td className="num p-1 text-right">{pct(e.stats.active_share, 0)}</td>
                     <td className="num p-1 text-right">{pct(e.stats.win_rate)}</td>
@@ -97,19 +156,32 @@ export default function EdgeLabPage() {
                     <td className="num p-1 text-right">{num(e.stats.payoff)}</td>
                     <td className="num p-1 text-right">{pct(e.stats.expectancy, 2)}</td>
                     <td className="num p-1 text-right">{pct(e.stats.kelly, 0)}</td>
-                    <td className="num p-1 text-right">{num(e.stats.t_stat, 1)}</td>
+                    <td className="num p-1 text-right">{num(e.p_value, 3)}</td>
+                    <td className={`num p-1 text-right ${(e.p_holm ?? 1) < 0.05 ? 'font-semibold text-positive' : 'text-fg-2'}`}>{num(e.p_holm, 3)}</td>
                     <td className="num p-1 text-right">{pct(e.share_positive_lift, 0)}</td>
                     <td className="p-1"><LiftBars rows={e.stability} /></td>
                   </tr>
-                ))}
+                  </Fragment>
+                  );
+                })}
               </tbody>
             </table>
           </div>
           <p className="mt-2 text-[11px] text-fg-3">
             Lift = win rate minus the base rate; an edge is only useful if it beats how often the asset rises anyway.
-            Occurrences overlap when the horizon is longer than one bar, so the t-stat overstates confidence; small
-            counts (under ~30) are anecdotes.
+            p tests the win rate against the base rate on non-overlapping outcomes (occurrences ÷ {stats.effective_n_divisor},
+            since {stats.effective_n_divisor}-bar outcomes of neighbouring bars overlap). Adjusted p corrects for all{' '}
+            <b>{stats.n_tests} tests in this evaluation</b> (Holm): a sweep of many thresholds pays for itself here.
+            {stats.graphs.length > 0 && <> Graphs used: {stats.graphs.map((g) => `${g.name} v${g.version ?? '?'}`).join(', ')}.</>}
           </p>
+          {(() => {
+            const groups = Array.from(new Set(stats.edges.filter((e) => e.group && e.value !== null).map((e) => e.group as string)));
+            return groups.length ? (
+              <div className="mt-4 grid gap-4 md:grid-cols-2">
+                {groups.map((g) => <ThresholdCurve key={g} title={g} rows={stats.edges.filter((e) => e.group === g)} />)}
+              </div>
+            ) : null;
+          })()}
         </Card>
       )}
 
@@ -138,7 +210,14 @@ export default function EdgeLabPage() {
               ))}
             </tbody>
           </table>
+          {overlap.ignored && overlap.ignored.length > 0 && <p className="mt-2 text-[11px] text-warning">Not included (no pinned value): {overlap.ignored.join(', ')}</p>}
           <p className="mt-2 text-[11px] text-fg-3">Share of active weeks two edges have in common. Above ~50% they mostly say the same thing, so stacking them double counts.</p>
+        </Card>
+      )}
+
+      {comboNote && !stack && (
+        <Card title="Stacking">
+          <p className="text-xs text-fg-2">{comboNote}</p>
         </Card>
       )}
 
@@ -170,7 +249,8 @@ export default function EdgeLabPage() {
           </table>
           <p className="mt-2 text-[11px] text-fg-3">
             Stacking is rarely additive: look for a steady rise with enough occurrences, not one lucky bucket. p is
-            adjusted for the number of edges tested (Holm).
+            adjusted for the {stack.n_tests ?? stack.n_edges} tests in this evaluation (Holm).
+            {stack.ignored && stack.ignored.length > 0 && <> Not included (no pinned value): {stack.ignored.join(', ')}.</>}
           </p>
         </Card>
       )}

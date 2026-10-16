@@ -68,13 +68,17 @@ export default function KellyPage() {
     saveEdgeSet(s);
   };
 
+  // edges that can be combined: rules, yes/no graph outputs and swept graph edges with a pinned value
+  const nStack = set.rules.length + (set.graphEdges ?? []).filter((g) => g.graphId && g.ref && (g.dtype === 'bool' || g.pinned !== null)).length;
+  const unpinned = (set.graphEdges ?? []).filter((g) => g.graphId && g.ref && g.dtype !== 'bool' && g.pinned === null);
+
   const run = async () => {
     setError('');
     setBusy(true);
     try {
       const ppy = set.timeframe === '1W' ? 52 : set.timeframe === '1M' ? 12 : 252;
       const window = set.timeframe === '1W' ? 156 : set.timeframe === '1M' ? 36 : 756;
-      setRes(await engineApi.edgeKelly({ ...edgeRequest(set), k: Math.min(k, set.rules.length), cap, periods_per_year: ppy,
+      setRes(await engineApi.edgeKelly({ ...edgeRequest(set), k: Math.min(k, nStack), cap, periods_per_year: ppy,
                                           window, min_obs: Math.round(window / 3) }));
     } catch (e) {
       setError((e as Error).message);
@@ -97,15 +101,18 @@ export default function KellyPage() {
         actions={
           <div className="flex items-center gap-2 text-xs">
             <label>hold when at least</label>
-            <Input type="number" min={1} max={set.rules.length || 1} value={k} onChange={(e) => setK(Math.max(1, Number(e.target.value)))} className="h-7 w-14" />
-            <label>of {set.rules.length} edges are active · cap</label>
+            <Input type="number" min={1} max={nStack || 1} value={k} onChange={(e) => setK(Math.max(1, Number(e.target.value)))} className="h-7 w-14" />
+            <label>of {nStack} edges are active · cap</label>
             <Input type="number" min={0.1} step={0.25} value={cap} onChange={(e) => setCap(Number(e.target.value))} className="h-7 w-16" />
             <span>x capital</span>
-            <Button variant="primary" onClick={run} disabled={busy || !set.rules.length}>{busy ? 'Calculating...' : 'Calculate'}</Button>
+            <Button variant="primary" onClick={run} disabled={busy || !nStack}>{busy ? 'Calculating...' : 'Calculate'}</Button>
           </div>
         }
       >
         <EdgeForm set={set} onChange={change} />
+        {unpinned.length > 0 && (
+          <p className="mt-2 text-xs text-warning">Not used until a value is pinned: {unpinned.map((g) => `${g.graphName} · ${g.label || g.ref}`).join(', ')}</p>
+        )}
         {error && <p className="mt-2 text-xs text-negative">{error}</p>}
       </Card>
 
