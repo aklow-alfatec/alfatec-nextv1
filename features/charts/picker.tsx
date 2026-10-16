@@ -57,12 +57,12 @@ export function Picker({ catalogue, layout, onChange, priceRef, canAdd, missing 
     const f = q.trim().toLowerCase();
     const g = new Map<string, SeriesInfo[]>();
     for (const s of catalogue) {
-      if (f && !`${s.ref} ${s.block_label} ${s.port}`.toLowerCase().includes(f)) continue;
+      if (on.has(s.ref) || (f && !`${s.ref} ${s.block_label} ${s.port}`.toLowerCase().includes(f))) continue;
       const key = `${s.node} · ${s.block_label}`;
       g.set(key, [...(g.get(key) ?? []), s]);
     }
     return [...g.entries()];
-  }, [catalogue, q]);
+  }, [catalogue, q, on]);
 
   const edit = (series: LayoutSeries[]) => onChange({ ...layout, preset: 'custom', series });
   const toggle = (s: SeriesInfo) => {
@@ -88,7 +88,7 @@ export function Picker({ catalogue, layout, onChange, priceRef, canAdd, missing 
     );
   };
 
-  const added = layout.series.filter((s) => s.indicator);
+  const shown = layout.series.filter((s) => !s.special);
   const row = (s: LayoutSeries, title: string, sub: string) => (
     <div key={s.id} className="grid grid-cols-[16px_20px_minmax(0,1fr)_auto] items-center gap-2 rounded px-1 py-0.5 text-xs hover:bg-raised">
       <input type="checkbox" checked readOnly onClick={() => edit(layout.series.filter((x) => x.id !== s.id))} aria-label={`Hide ${title}`} />
@@ -107,10 +107,10 @@ export function Picker({ catalogue, layout, onChange, priceRef, canAdd, missing 
         {special('trades', 'Trades (entries / exits)', 'price')}
         {special('equity', 'Equity vs buy and hold', 'equity')}
       </div>
-      {added.length > 0 && (
+      {shown.length > 0 && (
         <div className="space-y-0.5">
-          <h3 className="text-[11px] font-semibold uppercase tracking-wide text-fg-3">Added <span className="font-normal normal-case">(computed for this run, not in the graph)</span></h3>
-          {added.map((s) => row(s, s.label ?? s.indicator!.label, `on ${s.indicator!.input}`))}
+          <h3 className="text-[11px] font-semibold uppercase tracking-wide text-fg-3">On the chart</h3>
+          {shown.map((s) => (s.indicator ? row(s, s.label ?? s.indicator.label, `added, on ${s.indicator.input}`) : row(s, s.ref ?? s.id, '')))}
         </div>
       )}
       <div className="space-y-1">
@@ -120,10 +120,7 @@ export function Picker({ catalogue, layout, onChange, priceRef, canAdd, missing 
             <div key={name}>
               <div className="truncate text-[11px] text-fg-3" title={name}>{name}</div>
               {items.map((s) => {
-                const cur = on.get(s.ref);
-                return cur && !cur.indicator ? (
-                  row(cur, s.port, s.ref)
-                ) : (
+                return (
                   <label key={s.ref} className="grid cursor-pointer grid-cols-[16px_20px_minmax(0,1fr)] items-center gap-2 rounded px-1 py-0.5 text-xs hover:bg-raised">
                     <input type="checkbox" checked={false} onChange={() => toggle(s)} />
                     <span className="h-2.5 w-2.5 rounded-sm bg-line-2" />

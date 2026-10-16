@@ -3,6 +3,8 @@ import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { Badge, Button, Card } from '@/components/ui';
 import { engineApi, type RunDetail } from '@/features/studio/api';
+import { RunChart } from '@/features/charts/run-chart';
+import { runSource, type ChartSource } from '@/features/charts/sources';
 import { StrategyResult } from '@/features/studio/results';
 
 const ACTIVE = new Set(['queued', 'running', 'stopping']);
@@ -13,6 +15,8 @@ export function RunClient({ id }: { id: string }) {
   const [versionNo, setVersionNo] = useState<number | null>(null);
   const [error, setError] = useState('');
   const [pick, setPick] = useState(0);
+  const [source, setSource] = useState<ChartSource | null>(null);
+  const [chartError, setChartError] = useState('');
 
   useEffect(() => {
     let stop = false;
@@ -48,6 +52,17 @@ export function RunClient({ id }: { id: string }) {
       .then((vs) => setVersionNo(vs.find((v) => v.id === run.graph_version_id)?.version ?? null))
       .catch(() => undefined);
   }, [run?.graph_id, run?.graph_version_id]);
+
+  // the indicator chart reads the run's series from the engine (catalogue first, columns as the layout needs them)
+  const done = run?.status === 'done';
+  useEffect(() => {
+    if (!done) return;
+    let stop = false;
+    runSource(id).then((s) => !stop && setSource(s)).catch((e: Error) => !stop && setChartError(e.message));
+    return () => {
+      stop = true;
+    };
+  }, [id, done]);
 
   const strategies = run?.summary?.strategies ?? [];
   const active = run && ACTIVE.has(run.status);
@@ -104,7 +119,22 @@ export function RunClient({ id }: { id: string }) {
             ) : undefined
           }
         >
-          <StrategyResult report={strategies[Math.min(pick, strategies.length - 1)]} chartHeight={320} />
+          {(() => {
+            const report = strategies[Math.min(pick, strategies.length - 1)];
+            return (
+              <StrategyResult
+                report={report}
+                chartHeight={320}
+                chart={
+                  source ? (
+                    <RunChart key={report.node} source={source} report={report} graphId={run?.graph_id} />
+                  ) : chartError ? (
+                    <p className="text-xs text-negative">Indicator chart unavailable: {chartError}</p>
+                  ) : undefined
+                }
+              />
+            );
+          })()}
         </Card>
       )}
       {run?.exports && Object.values(run.exports).some(Boolean) && (

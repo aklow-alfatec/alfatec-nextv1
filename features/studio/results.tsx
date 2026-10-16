@@ -190,8 +190,8 @@ export function TradesTable({ trades, limit = 200 }: { trades: TradeRow[]; limit
   );
 }
 
-/** Full report for one strategy node: chart, metrics, trades. */
-export function StrategyResult({ report, chartHeight }: { report: StrategyReport; chartHeight?: number }) {
+/** Full report for one strategy node: chart, metrics, trades. `chart` replaces the equity chart (the indicator chart). */
+export function StrategyResult({ report, chartHeight, chart }: { report: StrategyReport; chartHeight?: number; chart?: React.ReactNode }) {
   const [tab, setTab] = useState<'chart' | 'trades'>('chart');
   return (
     <div className="space-y-3">
@@ -208,7 +208,7 @@ export function StrategyResult({ report, chartHeight }: { report: StrategyReport
       </div>
       {tab === 'chart' ? (
         <>
-          <EquityChart curve={report.curve} height={chartHeight} />
+          {chart ?? <EquityChart curve={report.curve} height={chartHeight} />}
           <MetricsTable report={report} />
         </>
       ) : (

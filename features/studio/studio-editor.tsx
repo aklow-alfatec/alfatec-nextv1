@@ -20,6 +20,8 @@ import Palette, { DRAG_MIME } from './palette';
 import EngineNodeView from './engine-node';
 import SchemaForm from './schema-form';
 import { ApiError, engineApi, type PreviewResult } from './api';
+import { RunChart } from '../charts/run-chart';
+import { previewSource } from '../charts/sources';
 import { StrategyResult } from './results';
 import HistoryPanel from './history-panel';
 import { flowToGraph, graphToFlow } from './convert';
@@ -76,6 +78,8 @@ function EditorInner({ legacyPipelines = [], initialGraphId, onSaved }: StudioEd
   const [barsText, setBarsText] = useState('');
   const [preview, setPreview] = useState<PreviewResult | null>(null);
   const [previewError, setPreviewError] = useState('');
+  // the preview already holds every series the graph computed: the chart reads its columns from it (no second run)
+  const previewChart = useMemo(() => (preview ? previewSource(preview) : null), [preview]);
   const [resultsOpen, setResultsOpen] = useState(true);
   const [resultIdx, setResultIdx] = useState(0);
 
@@ -621,7 +625,16 @@ function EditorInner({ legacyPipelines = [], initialGraphId, onSaved }: StudioEd
           </header>
           {resultsOpen && (
             <div className="max-h-[52vh] overflow-y-auto p-3">
-              <StrategyResult report={preview.strategies[Math.min(resultIdx, preview.strategies.length - 1)]} chartHeight={240} />
+              {(() => {
+                const report = preview.strategies[Math.min(resultIdx, preview.strategies.length - 1)];
+                return (
+                  <StrategyResult
+                    report={report}
+                    chartHeight={240}
+                    chart={previewChart ? <RunChart key={report.node} source={previewChart} report={report} graphId={graphId} onSaved={(chart) => setMeta((m) => ({ ...m, chart }))} /> : undefined}
+                  />
+                );
+              })()}
             </div>
           )}
         </section>

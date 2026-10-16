@@ -22,6 +22,8 @@ interface Props {
   graphId?: string | null;
   /** from graph.meta.chart; read from the graph record when omitted */
   savedLayout?: unknown;
+  /** after the layout was saved to the graph (the editor keeps its own copy of graph.meta) */
+  onSaved?: (layout: ChartLayout) => void;
 }
 
 const readDraft = (graphId: string | null | undefined): ChartLayout | null => {
@@ -43,7 +45,7 @@ const writeDraft = (graphId: string, l: ChartLayout | null) => {
 };
 
 /** The backtest chart with its indicator picker: presets, per-graph saved layout, columns fetched as the layout needs them. */
-export function RunChart({ source, report, graphId, savedLayout }: Props) {
+export function RunChart({ source, report, graphId, savedLayout, onSaved }: Props) {
   const cat = source.catalogue;
   const priceRef = report?.price_ref;
   const [saved, setSaved] = useState<ChartLayout | null>(() => parseLayout(savedLayout));
@@ -139,6 +141,7 @@ export function RunChart({ source, report, graphId, savedLayout }: Props) {
       const rec = await engineApi.update(graphId, { graph: { ...g.graph, meta } });
       setSaved(layout);
       writeDraft(graphId, null);
+      onSaved?.(layout);
       setNote(rec.current_version === g.current_version ? 'Saved as the default for this graph (no new version).' : 'Saved.');
     } catch (e) {
       setNote(`Could not save: ${(e as Error).message}`);
