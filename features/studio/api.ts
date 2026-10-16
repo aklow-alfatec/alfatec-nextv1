@@ -79,12 +79,35 @@ export interface StrategyReport {
   curve: { index: string[]; equity: (number | null)[]; benchmark: (number | null)[] | null; drawdown: (number | null)[] };
 }
 
+/** One plottable series of a run (backend app/engine/results/catalogue.py). */
+export interface SeriesInfo {
+  ref: string;
+  node: string;
+  port: string;
+  block_type: string;
+  block_label: string;
+  dtype: 'float' | 'int' | 'bool';
+  kind: 'price' | 'grade_pct' | 'part_score' | 'bool' | 'pct_100' | 'other';
+  min: number | null;
+  max: number | null;
+}
+
 export interface PreviewResult {
   index: string[];
   outputs: string[];
   values: Record<string, (number | string | boolean | null)[]>;
   warnings: Issue[];
   strategies?: StrategyReport[];
+  /** every numeric / bool series of the run (with the graph's block types), for the chart picker */
+  catalogue?: SeriesInfo[];
+}
+
+/** Columns thinned like GET /runs/{id}?columns=: ts plus one array per column. */
+export interface ColumnsResult {
+  points: number;
+  total: number;
+  ts: string[];
+  columns: Record<string, (number | null)[]>;
 }
 
 export type JobStatus = 'queued' | 'running' | 'stopping' | 'stopped' | 'done' | 'failed';
@@ -230,6 +253,25 @@ export const engineApi = {
     return call<RunRow[]>(`/runs${s.toString() ? `?${s}` : ''}`);
   },
   run: (id: string) => call<RunDetail>(`/runs/${encodeURIComponent(id)}?include_series=false&events_limit=0`),
+  seriesCatalogue: (id: string) => call<{ run_id: string; series: SeriesInfo[] }>(`/runs/${encodeURIComponent(id)}/series-catalogue`),
+  /** Thinned columns of a finished run (no events, no download links). start / end limit the span before thinning. */
+  runColumns: async (id: string, columns: string[], q: { max_points?: number; start?: string; end?: string } = {}) => {
+    const s = new URLSearchParams({ columns: columns.join(','), max_points: String(q.max_points ?? 1500), events_limit: '0', exports: 'false' });
+    if (q.start) s.set('start', q.start);
+    if (q.end) s.set('end', q.end);
+    const r = await call<{ series: ColumnsResult | null }>(`/runs/${encodeURIComponent(id)}?${s}`);
+    return r.series ?? { points: 0, total: 0, ts: [], columns: {} };
+  },
+  /** Indicators the graph does not contain, computed over the run's period with the run's own graph. */
+  runIndicators: (id: string, indicators: Record<string, unknown>[], q: { max_points?: number; start?: string; end?: string } = {}) => {
+    const s = new URLSearchParams({ max_points: String(q.max_points ?? 1500) });
+    if (q.start) s.set('start', q.start);
+    if (q.end) s.set('end', q.end);
+    return call<{ run_id: string; index: string[]; points: number; total: number; series: Record<string, (number | null)[]> }>(
+      `/runs/${encodeURIComponent(id)}/indicators?${s}`,
+      { method: 'POST', body: JSON.stringify({ indicators }) },
+    );
+  },
   runStatus: (id: string) => call<{ id: string; status: JobStatus; progress: RunRow['progress']; error: string | null }>(`/runs/${encodeURIComponent(id)}/status`),
   stopRun: (id: string) => call<unknown>(`/runs/${encodeURIComponent(id)}/stop`, { method: 'POST' }),
   queueExperiment: (body: { graph_id: string; spec: ExperimentSpecBody; name?: string }) =>
