@@ -45,6 +45,7 @@ export default function RunsPage() {
     <div className="space-y-4 p-4 md:p-6">
       <div className="flex flex-wrap items-center gap-2">
         <h1 className="text-xl font-semibold">Runs</h1>
+        <Link href="/studio/old-backtests" className="text-sm text-accent hover:underline">Old nextv0 backtests →</Link>
         <select
           className="ml-auto rounded border border-line-2 bg-bg px-2 py-1 text-sm"
           value={graphFilter}
