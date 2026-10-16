@@ -1,6 +1,6 @@
 import Link from 'next/link';
-import { Button, Card, GradeChip } from '@/components/ui';
-import { activePipelines, lastFinalFriday, latestGrades, readingLabel } from '@/lib/grades';
+import { Button, Card, GradeChip, ReadingTag } from '@/components/ui';
+import { activePipelines, lastFinalFriday, latestGrades } from '@/lib/grades';
 import { latestRiskReward } from '@/lib/risk-reward';
 import { listTrades, tradeStats, type TradeView } from '@/lib/trades';
 import { RiskRewardEditor } from './risk-reward-editor';
@@ -51,7 +51,7 @@ export default async function TradesPage({ searchParams }: { searchParams: Promi
           <RiskRewardEditor
             symbols={symbols}
             rows={rows}
-            readings={Object.fromEntries(symbols.map((s) => [s, { label: readingLabel(grades[s]?.reading), grade: grades[s]?.grade ?? null, date: grades[s]?.date ?? null }]))}
+            readings={Object.fromEntries(symbols.map((s) => [s, { reading: grades[s]?.reading ?? null, grade: grades[s]?.grade ?? null, date: grades[s]?.date ?? null }]))}
           />
         </Card>
       </div>
@@ -158,7 +158,7 @@ export default async function TradesPage({ searchParams }: { searchParams: Promi
                       <td className="py-1.5 text-center">
                         <span className="inline-flex items-center gap-1"><GradeChip grade={t.entry_grade} className="h-5 min-w-7 text-[10px]" />→<GradeChip grade={grades[t.symbol]?.grade ?? null} className="h-5 min-w-7 text-[10px]" /></span>
                       </td>
-                      <td className="py-1.5 text-xs text-fg-2">{readingLabel(t.open_signal)}</td>
+                      <td className="py-1.5"><ReadingTag reading={t.open_signal} /></td>
                     </tr>
                   );
                 })}

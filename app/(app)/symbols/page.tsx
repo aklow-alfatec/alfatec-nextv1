@@ -1,7 +1,7 @@
 import Link from 'next/link';
-import { Card, GradeChip, Table, TBody, TD, TH, THead, TR } from '@/components/ui';
+import { Card, GradeChip, ReadingTag, Table, TBody, TD, TH, THead, TR } from '@/components/ui';
 import sql from '@/lib/db';
-import { activePipelines, lastFinalFriday, latestGrades, readingLabel } from '@/lib/grades';
+import { activePipelines, lastFinalFriday, latestGrades } from '@/lib/grades';
 
 export const dynamic = 'force-dynamic';
 
@@ -43,7 +43,7 @@ export default async function SymbolsPage() {
                   <TD className="text-fg-2">{c?.name ?? '-'}</TD>
                   <TD className="text-fg-2">{p.name}</TD>
                   <TD><GradeChip grade={g?.grade ?? null} /></TD>
-                  <TD className="text-fg-2">{readingLabel(g?.reading)}</TD>
+                  <TD><ReadingTag reading={g?.reading} /></TD>
                   <TD num className="text-right">{c ? Number(c.close).toLocaleString(undefined, { maximumFractionDigits: 2 }) : '-'}</TD>
                 </TR>
               );

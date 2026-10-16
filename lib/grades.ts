@@ -1,4 +1,5 @@
 import sql from './db';
+import { readingInfo } from './grade-zones';
 
 /** Server-side only (imports the database). Grades from `daily_indicator_json`, as nextv0 shows them:
  *  grade   = share of the maximum score, 0..100, from the `<X>_DAILY_GRADE` node {value, max}
@@ -20,18 +21,9 @@ export interface GradeCell {
   reading: number | null;
 }
 
-export const READINGS: Record<number, { label: string; color: string }> = {
-  [-3]: { label: 'Extremely undervalued', color: '#66ffff' },
-  [-2]: { label: 'Very undervalued', color: '#caedfb' },
-  [-1]: { label: 'Undervalued', color: '#61cbf3' },
-  0: { label: 'Normal', color: '#bbbbbb' },
-  1: { label: 'Overvalued', color: '#ffcccc' },
-  2: { label: 'Very overvalued', color: '#ff9999' },
-  3: { label: 'Extremely overvalued', color: '#ff0066' },
-};
-
+/** nextv0 reading label (see lib/grade-zones.ts). */
 export function readingLabel(r: number | null | undefined): string {
-  return r === null || r === undefined ? 'No data' : READINGS[Math.round(r)]?.label ?? String(r);
+  return readingInfo(r).label;
 }
 
 const iso = (d: Date | string) => (d instanceof Date ? d.toISOString().slice(0, 10) : new Date(d).toISOString().slice(0, 10));

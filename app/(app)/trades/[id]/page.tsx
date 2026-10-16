@@ -1,8 +1,8 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { auth } from '@/auth';
-import { Card, GradeChip } from '@/components/ui';
-import { lastFinalFriday, latestGrades, readingLabel } from '@/lib/grades';
+import { Card, GradeChip, ReadingTag } from '@/components/ui';
+import { lastFinalFriday, latestGrades } from '@/lib/grades';
 import { getTrade } from '@/lib/trades';
 import { TradeActions } from './trade-actions';
 
@@ -51,8 +51,8 @@ export default async function TradePage({ params }: { params: Promise<{ id: stri
         </Card>
         <Card title="Grade">
           <div className="space-y-2 text-sm">
-            <div className="flex items-center gap-2"><span className="w-24 text-fg-2">At entry</span><GradeChip grade={t.entry_grade} /><span className="text-xs text-fg-2">{readingLabel(t.open_signal)}</span></div>
-            <div className="flex items-center gap-2"><span className="w-24 text-fg-2">This week</span><GradeChip grade={now?.grade ?? null} /><span className="text-xs text-fg-2">{readingLabel(now?.reading)}</span></div>
+            <div className="flex items-center gap-2"><span className="w-24 text-fg-2">At entry</span><GradeChip grade={t.entry_grade} /><ReadingTag reading={t.open_signal} /></div>
+            <div className="flex items-center gap-2"><span className="w-24 text-fg-2">This week</span><GradeChip grade={now?.grade ?? null} /><ReadingTag reading={now?.reading} /></div>
             <p className="text-[11px] text-fg-3">Higher grade = more undervalued. A long opened at a high grade went with the grades.</p>
           </div>
         </Card>

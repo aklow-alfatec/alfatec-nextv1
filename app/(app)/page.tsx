@@ -1,7 +1,7 @@
 import Link from 'next/link';
-import { Card, GradeChip, Sparkline } from '@/components/ui';
+import { Card, GradeChip, ReadingTag, Sparkline } from '@/components/ui';
 import sql from '@/lib/db';
-import { activePipelines, fridays, lastFinalFriday, readingLabel, weeklyGrades } from '@/lib/grades';
+import { activePipelines, fridays, lastFinalFriday, weeklyGrades } from '@/lib/grades';
 
 export const dynamic = 'force-dynamic';
 
@@ -124,7 +124,7 @@ export default async function OverviewPage({ searchParams }: { searchParams: Pro
                   </td>
                   <td className="py-1.5"><GradeChip grade={r.grade} /></td>
                   <td className="py-1.5 text-xs text-fg-2">
-                    {readingLabel(r.reading)}
+                    <ReadingTag reading={r.reading} />
                     {r.date && r.date !== week && <span className="ml-1 text-fg-3">(as of {fmtDay(r.date)})</span>}
                   </td>
                   <td className="hidden py-1.5 md:table-cell"><Sparkline data={r.series} /></td>

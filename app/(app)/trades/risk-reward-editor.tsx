@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { Button, GradeChip } from '@/components/ui';
+import { Button, GradeChip, ReadingTag } from '@/components/ui';
 import type { Bias, RiskRewardRow } from '@/lib/risk-reward';
 import { saveRiskRewardAction } from './actions';
 
@@ -23,7 +23,7 @@ const cell = 'rounded border border-line-2 bg-bg px-1 py-0.5 text-xs';
 export function RiskRewardEditor({ symbols, rows, readings }: {
   symbols: string[];
   rows: RiskRewardRow[];
-  readings: Record<string, { label: string; grade: number | null; date: string | null }>;
+  readings: Record<string, { reading: number | null; grade: number | null; date: string | null }>;
 }) {
   const init = (): Record<string, Edit> =>
     Object.fromEntries(symbols.map((s) => {
@@ -82,7 +82,7 @@ export function RiskRewardEditor({ symbols, rows, readings }: {
               return (
                 <tr key={s} className={`border-t border-line ${changed.includes(s) ? 'bg-accent/5' : ''}`}>
                   <td className="py-1 font-semibold">{s}</td>
-                  <td className="py-1 text-xs text-fg-2"><span className="inline-flex items-center gap-1"><GradeChip grade={rd?.grade ?? null} className="h-5 min-w-7 text-[10px]" />{rd?.label}</span></td>
+                  <td className="py-1 text-xs text-fg-2"><span className="inline-flex items-center gap-1"><GradeChip grade={rd?.grade ?? null} className="h-5 min-w-7 text-[10px]" /><ReadingTag reading={rd?.reading} /></span></td>
                   <td className="py-1">
                     <select className={cell} value={e.bias} onChange={(x) => upd(s, { bias: x.target.value as Bias })}>
                       <option value="NONE">none</option><option value="LONG">long</option><option value="SHORT">short</option>

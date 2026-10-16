@@ -1,5 +1,6 @@
 import Link from 'next/link';
-import { Card, GradeChip } from '@/components/ui';
+import { Card, GradeChip, ReadingTag } from '@/components/ui';
+import { GRADE_ZONES } from '@/lib/grade-zones';
 import { activePipelines, componentChanges, fridays, lastFinalFriday, readingLabel, weeklyGrades } from '@/lib/grades';
 import { ExportCsv } from './export-csv';
 
@@ -29,7 +30,8 @@ export default async function GradesPage({ searchParams }: { searchParams: Promi
     const cur = grades[grades.length - 1];
     const before = grades[grades.length - 2];
     const delta = cur !== null && before !== null ? Math.round(cur) - Math.round(before) : null;
-    return { ...p, grades, cur, delta, reading: readingLabel(grid[p.symbol]?.[end]?.reading) };
+    const rd = grid[p.symbol]?.[end]?.reading ?? null;
+    return { ...p, grades, cur, delta, readingValue: rd, reading: readingLabel(rd) };
   });
   if (filter === 'under') rows = rows.filter((r) => (r.cur ?? 0) >= 80);
   if (filter === 'movers') rows = rows.filter((r) => r.delta);
@@ -92,18 +94,21 @@ export default async function GradesPage({ searchParams }: { searchParams: Promi
                   <td className={`num pl-2 text-right ${r.delta ? (r.delta > 0 ? 'text-positive' : 'text-negative') : 'text-fg-3'}`}>
                     {r.delta === null ? '-' : r.delta > 0 ? `+${r.delta}` : r.delta}
                   </td>
-                  <td className="whitespace-nowrap pl-3 text-fg-2">{r.reading}</td>
+                  <td className="whitespace-nowrap pl-3"><ReadingTag reading={r.readingValue} /></td>
                 </tr>
               ))}
             </tbody>
           </table>
         </div>
         <div className="mt-3 flex flex-wrap items-center gap-3 text-[11px] text-fg-3">
-          <span>Grade scale:</span>
-          {[10, 30, 50, 70, 90].map((g, i) => (
-            <span key={g} className="flex items-center gap-1"><GradeChip grade={g} className="h-4 min-w-4 px-0 text-[0px]" />{['under 20', '20–39', '40–59', '60–79', '80+ (undervalued)'][i]}</span>
+          <span>Grade zones (as nextv0):</span>
+          {GRADE_ZONES.map((z) => (
+            <span key={z.label} className="flex items-center gap-1">
+              <GradeChip grade={(z.min + z.max) / 2} className="h-4 min-w-4 px-0 text-[0px]" />
+              {z.label} {z.max === 100 ? `${z.min}+` : z.min === 0 ? `under ${z.max}` : `${z.min}–${z.max}`}
+            </span>
           ))}
-          <span>· Reading comes from each graph&apos;s indicator grader (−3 to +3).</span>
+          <span>· The reading tag comes from each graph&apos;s indicator grader (−3 to +3).</span>
         </div>
       </Card>
 

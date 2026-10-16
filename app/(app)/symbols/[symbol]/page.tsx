@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
-import { Button, Card, GradeChip } from '@/components/ui';
-import { fridays, lastFinalFriday, readingLabel } from '@/lib/grades';
+import { Button, Card, GradeChip, PartScoreChip, ReadingTag } from '@/components/ui';
+import { fridays, lastFinalFriday } from '@/lib/grades';
 import { activePipelineFor, assetInfo, components, graphForPipeline, prices, runsForSymbol, weeklyPayloads } from '@/lib/symbols';
 import { PriceGradeChart } from './price-grade-chart';
 
@@ -77,7 +77,7 @@ export default async function SymbolPage({ params, searchParams }: { params: Pro
           <div className="flex items-center gap-3">
             <GradeChip grade={cur.grade} className="h-10 min-w-14 text-lg" />
             <div className="text-sm">
-              <div>{readingLabel(cur.reading)}</div>
+              <div><ReadingTag reading={cur.reading} /></div>
               <div className="num text-fg-2">
                 {cur.points !== null && cur.max !== null && <>{cur.points} of {cur.max} points · </>}
                 {delta === null ? 'no change data' : delta === 0 ? 'unchanged this week' : `${delta > 0 ? '+' : ''}${delta} this week`}
@@ -126,7 +126,7 @@ export default async function SymbolPage({ params, searchParams }: { params: Pro
                       <td className="py-1.5 text-xs text-fg-2">{c.describe}</td>
                       <td className="num py-1.5 text-right">{fmt(nodeVal(cur?.nodes, c.input) ?? nodeVal(cur?.nodes, c.node))}</td>
                       <td className="num py-1.5 text-right">
-                        {g ?? '-'}
+                        <PartScoreChip score={g} className="h-5 min-w-7" />
                         {g !== null && g0 !== null && g !== g0 && <span className={`ml-1 text-xs ${g > g0 ? 'text-positive' : 'text-negative'}`}>({g0}→{g})</span>}
                       </td>
                     </tr>
@@ -134,7 +134,7 @@ export default async function SymbolPage({ params, searchParams }: { params: Pro
                 })}
               </tbody>
             </table>
-            <p className="mt-2 text-[11px] text-fg-3">Each part scores 1–5; higher is more undervalued. The grade is the total as a share of the maximum.</p>
+            <p className="mt-2 text-[11px] text-fg-3">Each part scores 1–5: 5 = undervalued, 1 = overvalued (nextv0 colours). The grade is the total as a share of the maximum.</p>
           </Card>
 
           <Card title={`Runs on ${symbol}`} actions={graph ? <Link className="text-xs text-accent hover:underline" href="/studio/runs">All runs →</Link> : undefined}>
@@ -176,10 +176,11 @@ export default async function SymbolPage({ params, searchParams }: { params: Pro
                     {heatWeeks.map((w) => {
                       const p = heat[w];
                       const g = k === '__TOTAL__' ? p?.grade ?? null : nodeGrade(p?.nodes, k);
-                      const as100 = g === null ? null : k === '__TOTAL__' ? g : g * 20 - 10;
                       return (
                         <td key={w} title={`${w}: ${g === null ? 'no data' : k === '__TOTAL__' ? Math.round(g) : g}`}>
-                          <GradeChip grade={as100} className="h-5 min-w-0 w-3 px-0 text-[0px]" />
+                          {k === '__TOTAL__'
+                            ? <GradeChip grade={g} className="h-5 min-w-0 w-3 px-0 text-[0px]" />
+                            : <PartScoreChip score={g} className="h-5 min-w-0 w-3 px-0 text-[0px]" />}
                         </td>
                       );
                     })}
