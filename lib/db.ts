@@ -1,6 +1,7 @@
 import postgres from 'postgres';
 
-// Read-only usage only: this app never writes to the database.
+// Reads, plus the writes the nextv0 pages did (trades, closures, risk-reward, assets, manual entry, users),
+// always from server actions that check the session first.
 const globalForSql = globalThis as unknown as { __sql?: ReturnType<typeof postgres> };
 
 const sql =
