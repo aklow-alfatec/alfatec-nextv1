@@ -1,24 +1,30 @@
 import { auth } from '@/auth';
+import { engineTarget, resetEngineTarget } from '@/lib/engine-base';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
 
-// Forwards /api/engine/<path> -> ${ENGINE_API_URL}/api/v1/<path>, adding the server-side secret.
+// Forwards /api/engine/<path> -> <engine>/api/v1/<path>, adding the server-side secret. <engine> is the local
+// backend when ENGINE_LOCAL_URL answers its health check, else ENGINE_API_URL (lib/engine-base.ts).
 async function forward(req: Request, ctx: { params: Promise<{ path: string[] }> }) {
   const session = await auth();
   if (!session?.user) return Response.json({ detail: 'Unauthorized' }, { status: 401 });
 
-  const base = process.env.ENGINE_API_URL;
-  if (!base) return Response.json({ detail: 'ENGINE_API_URL is not configured' }, { status: 500 });
+  let engine;
+  try {
+    engine = await engineTarget();
+  } catch (e) {
+    return Response.json({ detail: (e as Error).message }, { status: 500 });
+  }
 
   const { path } = await ctx.params;
   const url = new URL(req.url);
-  const target = `${base.replace(/\/$/, '')}/api/v1/${path.map(encodeURIComponent).join('/')}${url.search}`;
+  const target = `${engine.base}/api/v1/${path.map(encodeURIComponent).join('/')}${url.search}`;
 
   const headers = new Headers();
   headers.set('Content-Type', req.headers.get('content-type') ?? 'application/json');
   headers.set('Accept', 'application/json');
-  if (process.env.ENGINE_API_SECRET) headers.set('X-Engine-Secret', process.env.ENGINE_API_SECRET);
+  if (engine.secret) headers.set('X-Engine-Secret', engine.secret);
 
   const hasBody = !['GET', 'HEAD', 'DELETE'].includes(req.method);
   let upstream: Response;
@@ -30,12 +36,13 @@ async function forward(req: Request, ctx: { params: Promise<{ path: string[] }> 
       cache: 'no-store',
     });
   } catch (e) {
-    return Response.json({ detail: `Engine API unreachable: ${(e as Error).message}` }, { status: 502 });
+    if (engine.source === 'local') resetEngineTarget();
+    return Response.json({ detail: `Engine API (${engine.source}) unreachable: ${(e as Error).message}` }, { status: 502 });
   }
-  if (upstream.status === 204) return new Response(null, { status: 204 });
+  if (upstream.status === 204) return new Response(null, { status: 204, headers: { 'X-Engine-Source': engine.source } });
   return new Response(await upstream.text(), {
     status: upstream.status,
-    headers: { 'Content-Type': upstream.headers.get('content-type') ?? 'application/json' },
+    headers: { 'Content-Type': upstream.headers.get('content-type') ?? 'application/json', 'X-Engine-Source': engine.source },
   });
 }
 

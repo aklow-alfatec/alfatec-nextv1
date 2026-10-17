@@ -1,7 +1,23 @@
 import type { BlockSpec, GraphJson, GraphMeta, GraphRecord, GraphVersion, Issue } from './types';
 
-/** All calls go through the Next route handler /api/engine, which adds the server-side secret. */
+/** Calls go through the Next route handler /api/engine, which adds the server-side secret. Read-only studio
+ *  paths are answered from the database by /api/studio-db instead (P20), so browsing never wakes the engine;
+ *  NEXT_PUBLIC_STUDIO_DB_READS=0 sends them to the engine again. */
 const BASE = '/api/engine';
+const DB_BASE = '/api/studio-db';
+const DB_READS = process.env.NEXT_PUBLIC_STUDIO_DB_READS !== '0';
+const DB_PATHS = [
+  /^\/graphs(\/[^/?]+(\/versions(\/\d+)?)?)?(\?|$)/,
+  /^\/(runs|experiments)(\?|$)/,
+  /^\/(runs|experiments)\/[^/?]+\/status$/,
+  /^\/experiments\/[^/?]+$/,
+  /^\/runs\/[^/?]+\?include_series=false&events_limit=0$/,
+];
+
+/** True when a request is a studio read the database answers (GET only; see app/api/studio-db). */
+export function servedFromDb(path: string, method = 'GET'): boolean {
+  return DB_READS && method.toUpperCase() === 'GET' && DB_PATHS.some((re) => re.test(path));
+}
 
 export class ApiError extends Error {
   status: number;
@@ -29,7 +45,7 @@ function detailText(body: unknown, fallback: string): string {
 async function call<T>(path: string, init?: RequestInit): Promise<T> {
   let res: Response;
   try {
-    res = await fetch(`${BASE}${path}`, {
+    res = await fetch(`${servedFromDb(path, init?.method) ? DB_BASE : BASE}${path}`, {
       ...init,
       headers: { 'Content-Type': 'application/json', ...(init?.headers ?? {}) },
     });
@@ -253,6 +269,9 @@ export const engineApi = {
     return call<RunRow[]>(`/runs${s.toString() ? `?${s}` : ''}`);
   },
   run: (id: string) => call<RunDetail>(`/runs/${encodeURIComponent(id)}?include_series=false&events_limit=0`),
+  /** Signed download links for a finished run's files (from the engine; they expire after an hour). */
+  runExports: async (id: string) =>
+    (await call<RunDetail>(`/runs/${encodeURIComponent(id)}?include_series=false&events_limit=0&exports=true`)).exports ?? {},
   seriesCatalogue: (id: string) => call<{ run_id: string; series: SeriesInfo[] }>(`/runs/${encodeURIComponent(id)}/series-catalogue`),
   /** Thinned columns of a finished run (no events, no download links). start / end limit the span before thinning. */
   runColumns: async (id: string, columns: string[], q: { max_points?: number; start?: string; end?: string } = {}) => {

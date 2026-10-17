@@ -17,7 +17,10 @@ For local dev take the values from `../alfatec-nextv0/.env.local` (`AUTH_SECRET`
 |---|---|
 | `AUTH_SECRET`, `AUTH_TRUST_HOST` | Auth.js session signing (use the same secret as nextv0 only if you want shared sessions) |
 | `POSTGRES_URL` | Read-only lookup in the existing nextv0 `users` table (bcrypt check, same as nextv0) |
-| `ENGINE_API_URL` | Origin of the engine API, e.g. `http://localhost:8000` (the proxy appends `/api/v1/...`) |
+| `ENGINE_API_URL` | Origin of the engine API (the cloud server in production), e.g. `https://engine-xyz.run.app` (the proxy appends `/api/v1/...`) |
+| `ENGINE_LOCAL_URL` | Optional, local development only: e.g. `http://127.0.0.1:8000`. When a backend there answers `/api/v1/health` as `alfatec-backend`, nextv1 uses it instead of `ENGINE_API_URL` (checked every 15 s, so starting or stopping it switches over by itself). Leave unset on Vercel |
+| `ENGINE_LOCAL_SECRET` | Optional secret for the local backend (default: `ENGINE_API_SECRET`) |
+| `NEXT_PUBLIC_STUDIO_DB_READS` | `0` sends the studio's read-only requests to the engine again; default: answered from the database (`/api/studio-db`) |
 | `ENGINE_API_SECRET` | Sent as `X-Engine-Secret` by the proxy. Server-side only, never `NEXT_PUBLIC_` |
 
 ## Run
@@ -36,8 +39,13 @@ npx tsc --noEmit
 
 - `app/(app)/*` protected routes inside the shell (layout checks the session; `middleware.ts` also redirects).
 - `app/login` Credentials login; `auth.ts` (bcrypt + `users` table), `auth.config.ts` (edge-safe).
-- `app/api/engine/[...path]` authenticated proxy: `/api/engine/x` -> `${ENGINE_API_URL}/api/v1/x`.
-  Returns 401 without a session. The browser never sees the engine URL or secret.
+- `app/api/engine/[...path]` authenticated proxy: `/api/engine/x` -> `<engine>/api/v1/x`, where `<engine>` is the
+  local backend when `ENGINE_LOCAL_URL` answers, else `ENGINE_API_URL` (`lib/engine-base.ts`; the response header
+  `X-Engine-Source` says which). Returns 401 without a session. The browser never sees the engine URL or secret.
+- `app/api/studio-db/[...path]` the studio's read-only requests (graphs, versions, runs, experiments, job status)
+  answered from the database with the engine API's JSON (`lib/studio-db.ts`), so browsing never wakes the engine.
+  `features/studio/api.ts` (`servedFromDb`) decides the route. Parity check against a running API:
+  `npx -y tsx@4.19.2 --env-file=.env.local scripts/compare-studio-reads.ts http://127.0.0.1:8000`.
 - `components/ui` design-system components, `components/shell` sidebar/top bar. `/ui` is the gallery.
 - `features/studio` plain React graph editor (no Next imports); mounted with `next/dynamic` at
   `/studio/graphs/[id]` (`new` for a blank graph) and listed at `/studio/graphs`. It only talks to `/api/engine`.

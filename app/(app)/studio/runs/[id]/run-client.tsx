@@ -17,6 +17,8 @@ export function RunClient({ id }: { id: string }) {
   const [pick, setPick] = useState(0);
   const [source, setSource] = useState<ChartSource | null>(null);
   const [chartError, setChartError] = useState('');
+  const [exports, setExports] = useState<Record<string, string | null> | null>(null);
+  const [exportsBusy, setExportsBusy] = useState(false);
 
   useEffect(() => {
     let stop = false;
@@ -137,10 +139,21 @@ export function RunClient({ id }: { id: string }) {
           })()}
         </Card>
       )}
-      {run?.exports && Object.values(run.exports).some(Boolean) && (
+      {done && (
         <Card title="Downloads">
+          {!exports ? (
+            <Button
+              disabled={exportsBusy}
+              onClick={() => {
+                setExportsBusy(true);
+                engineApi.runExports(id).then(setExports).catch((e: Error) => setError(e.message)).finally(() => setExportsBusy(false));
+              }}
+            >
+              {exportsBusy ? 'Getting links...' : 'Get download links'}
+            </Button>
+          ) : (
           <ul className="flex flex-wrap gap-3 text-sm">
-            {Object.entries(run.exports).map(([name, url]) =>
+            {Object.entries(exports).map(([name, url]) =>
               url ? (
                 <li key={name}>
                   <a className="text-accent hover:underline" href={url} target="_blank" rel="noreferrer">{name}</a>
@@ -148,7 +161,8 @@ export function RunClient({ id }: { id: string }) {
               ) : null,
             )}
           </ul>
-          <p className="mt-2 text-xs text-fg-3">Links expire after an hour; reload the page for fresh ones.</p>
+          )}
+          <p className="mt-2 text-xs text-fg-3">Signed links from the engine (it starts if asleep); they expire after an hour.</p>
         </Card>
       )}
     </div>
