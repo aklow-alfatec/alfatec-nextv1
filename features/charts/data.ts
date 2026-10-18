@@ -99,6 +99,7 @@ export function pairs(t: number[], v: (number | null)[]): { time: number; value:
 export function fmtValue(pane: PaneKind, v: number | null | undefined): string {
   if (v === null || v === undefined || !Number.isFinite(v)) return '-';
   if (pane === 'equity') return Math.round(v).toLocaleString();
+  if (pane === 'grade') return String(Math.round(v));
   if (pane === 'score' || pane === 'bool') return String(Math.round(v * 100) / 100);
   if (Math.abs(v) >= 1000) return Math.round(v).toLocaleString();
   return v.toFixed(Math.abs(v) < 1 ? 4 : 2);

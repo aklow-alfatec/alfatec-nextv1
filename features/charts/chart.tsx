@@ -65,9 +65,11 @@ const alpha = (hex: string, a: number) => {
   return `rgba(${(n >> 16) & 255}, ${(n >> 8) & 255}, ${n & 255}, ${a})`;
 };
 
+export interface ReadoutRow { label: string; color: string; text: string }
+
 interface Readout {
   time: number;
-  rows: { label: string; color: string; text: string }[];
+  rows: ReadoutRow[];
 }
 
 export interface MultiPaneChartProps {
@@ -75,12 +77,16 @@ export interface MultiPaneChartProps {
   equity?: EquityData | null;
   /** entry / exit markers, drawn on the first price series */
   trades?: TradeMark[] | null;
+  /** pane titles instead of the defaults (layout.ts PANE_TITLES) */
+  titles?: Partial<Record<PaneKind, string>>;
+  /** extra readout lines for the hovered time (seconds), after the series values */
+  extraRows?: (time: number) => ReadoutRow[];
   className?: string;
 }
 
 /** Price, grade %, 0-100, part-score, signal, other and equity panes on one time axis (lightweight-charts):
  *  drag to pan, wheel / pinch to zoom, double-click to reset, one crosshair and readout across panes. */
-export function MultiPaneChart({ series, equity, trades, className }: MultiPaneChartProps) {
+export function MultiPaneChart({ series, equity, trades, titles, extraRows, className }: MultiPaneChartProps) {
   const host = useRef<HTMLDivElement>(null);
   const chartRef = useRef<IChartApi | null>(null);
   const rangeRef = useRef<{ from: Time; to: Time } | null>(null);
@@ -259,6 +265,7 @@ export function MultiPaneChart({ series, equity, trades, className }: MultiPaneC
         const d = valueAt({ t: equity.t, v: equity.drawdown }, t);
         rows.push({ label: 'Drawdown', color: th.negative, text: d === null ? '-' : `${(d * 100).toFixed(1)}%` });
       }
+      if (extraRows) rows.push(...extraRows(t));
       setReadout({ time: t, rows });
     };
     chart.subscribeCrosshairMove(onMove as never);
@@ -283,7 +290,7 @@ export function MultiPaneChart({ series, equity, trades, className }: MultiPaneC
       chart.remove();
       chartRef.current = null;
     };
-  }, [series, equity, trades, panes, log, themeTick]);
+  }, [series, equity, trades, extraRows, panes, log, themeTick]);
 
   return (
     <div className={className}>
@@ -299,7 +306,7 @@ export function MultiPaneChart({ series, equity, trades, className }: MultiPaneC
         <div ref={host} style={{ height }} onDoubleClick={() => chartRef.current?.timeScale().fitContent()} />
         <div className="pointer-events-none absolute inset-0 text-[11px] text-fg-3">
           {tops.map((p) => (
-            <span key={p.kind} className="absolute left-2" style={{ top: p.top + 3 }}>{PANE_TITLES[p.kind]}</span>
+            <span key={p.kind} className="absolute left-2" style={{ top: p.top + 3 }}>{titles?.[p.kind] ?? PANE_TITLES[p.kind]}</span>
           ))}
         </div>
         {readout && (

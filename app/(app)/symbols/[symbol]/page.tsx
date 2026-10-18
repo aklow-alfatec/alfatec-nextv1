@@ -3,7 +3,7 @@ import { notFound } from 'next/navigation';
 import { Button, Card, GradeChip, PartScoreChip, ReadingTag } from '@/components/ui';
 import { fridays, lastFinalFriday } from '@/lib/grades';
 import { activePipelineFor, assetInfo, components, graphForPipeline, prices, runsForSymbol, weeklyPayloads } from '@/lib/symbols';
-import { PriceGradeChart } from './price-grade-chart';
+import { SymbolChart } from './symbol-chart';
 
 export const dynamic = 'force-dynamic';
 
@@ -101,7 +101,7 @@ export default async function SymbolPage({ params, searchParams }: { params: Pro
           </div>
         }
       >
-        <PriceGradeChart prices={px} weekly={weeks.map((w) => ({ date: w, grade: weekly[w]?.grade ?? null }))} />
+        <SymbolChart prices={px} weekly={weeks.map((w) => ({ date: w, grade: weekly[w]?.grade ?? null, reading: weekly[w]?.reading ?? null }))} />
       </Card>
 
       {pipe && (
