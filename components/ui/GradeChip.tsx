@@ -1,5 +1,5 @@
 import { cn } from '@/lib/cn';
-import { gradeZone, inkOn, partScoreColor, readingInfo } from '@/lib/grade-zones';
+import { GRADE_ZONES, gradeZone, inkOn, partScoreColor, readingInfo, type Zone } from '@/lib/grade-zones';
 
 /** Grade 0-100 band index (kept for callers that need a bucket number). */
 export function gradeBucket(g: number) {
@@ -20,6 +20,26 @@ export function GradeChip({ grade, className }: { grade: number | null | undefin
     >
       {Math.round(grade)}
     </span>
+  );
+}
+
+const zoneRange = (z: Zone) => (z.max === 100 ? `${z.min}+` : z.min === 0 ? `under ${z.max}` : `${z.min}–${z.max}`);
+
+/** Grade zone legend (nextv0 zones): one coloured card per zone, label in bold, range below. */
+export function GradeZoneLegend({ className, compact = false }: { className?: string; compact?: boolean }) {
+  return (
+    <div className={cn('flex flex-wrap gap-1.5', className)}>
+      {GRADE_ZONES.map((z) => (
+        <div
+          key={z.label}
+          className={cn('rounded-chip leading-tight', compact ? 'px-1.5 py-0.5' : 'px-2.5 py-1', !z.color && 'bg-line text-fg')}
+          style={z.color ? { background: z.color, color: inkOn(z.color) } : undefined}
+        >
+          <div className={cn('font-semibold', compact ? 'text-[10px]' : 'text-[11px]')}>{z.label}</div>
+          <div className={cn('num opacity-80', compact ? 'text-[9px]' : 'text-[10px]')}>{zoneRange(z)}</div>
+        </div>
+      ))}
+    </div>
   );
 }
 

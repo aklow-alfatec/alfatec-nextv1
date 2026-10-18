@@ -1,6 +1,5 @@
 import Link from 'next/link';
-import { Card, GradeChip, ReadingTag } from '@/components/ui';
-import { GRADE_ZONES } from '@/lib/grade-zones';
+import { Card, GradeChip, GradeZoneLegend, ReadingTag } from '@/components/ui';
 import { activePipelines, componentChanges, fridays, lastFinalFriday, readingLabel, weeklyGrades } from '@/lib/grades';
 import { ExportCsv } from './export-csv';
 
@@ -100,15 +99,10 @@ export default async function GradesPage({ searchParams }: { searchParams: Promi
             </tbody>
           </table>
         </div>
-        <div className="mt-3 flex flex-wrap items-center gap-3 text-[11px] text-fg-3">
-          <span>Grade zones (as nextv0):</span>
-          {GRADE_ZONES.map((z) => (
-            <span key={z.label} className="flex items-center gap-1">
-              <GradeChip grade={(z.min + z.max) / 2} className="h-4 min-w-4 px-0 text-[0px]" />
-              {z.label} {z.max === 100 ? `${z.min}+` : z.min === 0 ? `under ${z.max}` : `${z.min}–${z.max}`}
-            </span>
-          ))}
-          <span>· The reading tag comes from each graph&apos;s indicator grader (−3 to +3).</span>
+        <div className="mt-3 space-y-1.5 text-[11px] text-fg-3">
+          <span>Grade zones (as nextv0)</span>
+          <GradeZoneLegend />
+          <p>The reading tag comes from each graph&apos;s indicator grader (−3 to +3).</p>
         </div>
       </Card>
 

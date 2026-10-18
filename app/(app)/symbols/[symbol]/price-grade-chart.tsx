@@ -1,3 +1,4 @@
+import { GradeZoneLegend } from '@/components/ui';
 import { GRADE_ZONES, gradeZone } from '@/lib/grade-zones';
 
 /** Daily close (top) and the weekly grade % (bottom). The grade pane is flipped as in nextv0's viewer:
@@ -61,6 +62,7 @@ export function PriceGradeChart({ prices, weekly }: {
           <span key={d} className="absolute -translate-x-1/2" style={{ left: `${(X(d) / W) * 100}%` }}>{years.length > 1 ? d.slice(0, 4) : d}</span>
         ))}
       </div>
+      <GradeZoneLegend compact className="mt-2" />
     </div>
   );
 }

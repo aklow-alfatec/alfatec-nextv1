@@ -20,6 +20,7 @@ import { GRADE_ZONES, gradeZone } from '@/lib/grade-zones';
 import { BandsPrimitive } from './bands';
 import { bandRanges, fmtValue, nearestTime, pairs, valueAt, type EquityData, type PlotSeries, type TradeMark } from './data';
 import { PANE_ORDER, PANE_TITLES, type PaneKind } from './layout';
+import { GradeZoneLegend } from '@/components/ui';
 
 /** Relative pane heights (stretch factors). */
 const STRETCH: Record<PaneKind, number> = { price: 3.2, grade: 1.7, pct: 1.2, score: 1.2, bool: 0.45, other: 1.2, equity: 2 };
@@ -313,6 +314,7 @@ export function MultiPaneChart({ series, equity, trades, className }: MultiPaneC
           </div>
         )}
       </div>
+      {series.some((s) => s.pane === 'grade') && <GradeZoneLegend compact className="mt-1.5" />}
     </div>
   );
 }
