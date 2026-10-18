@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Sidebar } from './Sidebar';
 import { Button, StatusPill } from '@/components/ui';
+import { LogoMark } from '@/components/brand/Logo';
 import { ALL_NAV } from '@/lib/nav';
 
 function ThemeToggle() {
@@ -107,7 +108,8 @@ export function AppShell({
       <Sidebar user={user} open={open} onClose={() => setOpen(false)} />
       <div className="flex min-w-0 flex-1 flex-col">
         <header className="flex h-14 shrink-0 items-center gap-3 border-b border-line bg-surface px-4">
-          <Button variant="ghost" size="sm" className="md:hidden" aria-label="Menu" onClick={() => setOpen(true)}>
+          <Button variant="ghost" size="sm" className="gap-1.5 md:hidden" aria-label="Menu" onClick={() => setOpen(true)}>
+            <LogoMark className="h-[18px] w-auto" />
             Menu
           </Button>
           <Search />
