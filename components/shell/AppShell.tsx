@@ -102,14 +102,13 @@ export function AppShell({
   children: React.ReactNode;
 }) {
   const [open, setOpen] = useState(false);
-  const router = useRouter();
   return (
     <div className="flex h-screen overflow-hidden">
       <Sidebar user={user} open={open} onClose={() => setOpen(false)} />
       <div className="flex min-w-0 flex-1 flex-col">
         <header className="flex h-14 shrink-0 items-center gap-3 border-b border-line bg-surface px-4">
-          <Button variant="ghost" size="sm" className="gap-1.5 md:hidden" aria-label="Menu" onClick={() => setOpen(true)}>
-            <LogoMark className="h-[18px] w-auto" />
+          <Button variant="ghost" className="h-10 gap-2 px-2 md:hidden" aria-label="Menu" onClick={() => setOpen(true)}>
+            <LogoMark className="h-7 w-auto" />
             Menu
           </Button>
           <Search />
@@ -119,9 +118,6 @@ export function AppShell({
             <StatusPill status="idle" label="Macro" detail="n/a" />
           </div>
           <ThemeToggle />
-          <Button variant="primary" size="sm" onClick={() => router.push('/studio/graphs')}>
-            New graph
-          </Button>
         </header>
         <main className="min-h-0 flex-1 overflow-y-auto">{children}</main>
       </div>
