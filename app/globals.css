@@ -15,6 +15,7 @@
   --text-2: 174 182 196;    /* #AEB6C4 */
   --text-3: 138 147 164;    /* #8A93A4 */
   --accent: 242 169 59;     /* #F2A93B */
+  --brand: 255 255 255;     /* logo: white on dark */
   --accent-fg: 20 14 2;
   --positive: 76 195 138;   /* #4CC38A */
   --negative: 255 138 128;  /* #FF8A80 */
@@ -39,6 +40,7 @@
   --text-2: 52 59 71;
   --text-3: 84 93 108;      /* #545D6C */
   --accent: 176 106 0;      /* #B06A00 */
+  --brand: 15 57 99;        /* logo navy #0F3963 */
   --accent-fg: 255 255 255;
   --positive: 30 122 76;    /* #1E7A4C */
   --negative: 184 58 48;    /* #B83A30 */

@@ -4,6 +4,7 @@ import { usePathname } from 'next/navigation';
 import { cn } from '@/lib/cn';
 import { NAV } from '@/lib/nav';
 import { signOutAction } from '@/app/actions';
+import { Logo } from '@/components/brand/Logo';
 
 export function isActive(path: string, href: string) {
   return href === '/' ? path === '/' : path === href || path.startsWith(href + '/');
@@ -29,8 +30,7 @@ export function Sidebar({
         )}
       >
         <div className="flex h-14 items-center gap-2 px-4">
-          <span className="grid h-6 w-6 place-items-center rounded-chip bg-accent text-xs font-bold text-accent-fg">A</span>
-          <span className="font-semibold tracking-tight">Alfatec</span>
+          <Logo size={24} />
         </div>
         <nav className="flex-1 overflow-y-auto px-2 pb-4">
           {NAV.map((g, i) => (

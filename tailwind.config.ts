@@ -17,6 +17,7 @@ const config: Config = {
         'fg-2': v('text-2'),
         'fg-3': v('text-3'),
         accent: v('accent'),
+        brand: v('brand'),
         'accent-fg': v('accent-fg'),
         positive: v('positive'),
         negative: v('negative'),
