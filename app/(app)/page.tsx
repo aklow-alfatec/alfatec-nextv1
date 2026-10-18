@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { Card, GradeChip, ReadingTag, Sparkline } from '@/components/ui';
 import sql from '@/lib/db';
 import { activePipelines, fridays, lastFinalFriday, weeklyGrades } from '@/lib/grades';
+import { displayTags, groupBySection } from '@/lib/sections';
 
 export const dynamic = 'force-dynamic';
 
@@ -73,6 +74,12 @@ export default async function OverviewPage({ searchParams }: { searchParams: Pro
   const normal = graded.filter((r) => (r.grade as number) >= 40 && (r.grade as number) < 80).length;
   const over = graded.filter((r) => (r.grade as number) < 40).length;
   const moved = rows.filter((r) => r.delta !== null && r.delta !== 0).sort((a, b) => Math.abs(b.delta!) - Math.abs(a.delta!));
+  const sections = groupBySection(rows);
+  const band = (rs: typeof rows) => ({
+    under: rs.filter((r) => r.grade !== null && r.grade >= 80).length,
+    normal: rs.filter((r) => r.grade !== null && r.grade >= 40 && r.grade < 80).length,
+    over: rs.filter((r) => r.grade !== null && r.grade < 40).length,
+  });
 
   return (
     <div className="space-y-4 p-4 md:p-6">
@@ -105,7 +112,27 @@ export default async function OverviewPage({ searchParams }: { searchParams: Pro
 
       <div className="grid gap-4 lg:grid-cols-3">
         <Card title="This week's grades" actions={<Link className="text-xs text-accent hover:underline" href="/grades">All grades →</Link>} className="lg:col-span-2">
-          <table className="w-full text-sm">
+          <div className="space-y-3">
+          {sections.map((s) => {
+            const b = band(s.items);
+            return (
+          <details key={s.key} open className="group">
+            <summary className="flex cursor-pointer list-none items-center gap-2 border-b border-line pb-1 text-sm">
+              <span className="text-fg-3 transition-transform group-open:rotate-90">›</span>
+              <span className="font-semibold">{s.label}</span>
+              <span className="num rounded-chip bg-line px-1.5 text-[11px] text-fg-2">{s.items.length}</span>
+              <span className="num ml-auto text-[11px] text-fg-3">
+                {b.under} undervalued · {b.normal} normal · {b.over} overvalued
+              </span>
+            </summary>
+          <table className="w-full table-fixed text-sm">
+            <colgroup>
+              <col className="w-[30%]" />
+              <col className="w-[14%]" />
+              <col />
+              <col className="hidden w-[18%] md:table-column" />
+              <col className="w-[8%]" />
+            </colgroup>
             <thead className="text-xs text-fg-3">
               <tr>
                 <th className="py-1 text-left font-medium">Symbol</th>
@@ -116,11 +143,11 @@ export default async function OverviewPage({ searchParams }: { searchParams: Pro
               </tr>
             </thead>
             <tbody>
-              {rows.map((r) => (
+              {s.items.map((r) => (
                 <tr key={r.symbol} className="border-t border-line hover:bg-raised">
                   <td className="py-1.5">
                     <Link href={`/symbols/${encodeURIComponent(r.symbol)}`} className="font-semibold hover:text-accent">{r.title}</Link>
-                    {r.tags.length > 0 && <span className="ml-1 text-[10px] text-fg-3">{r.tags.join(', ')}</span>}
+                    {displayTags(r.tags).length > 0 && <span className="ml-1 text-[10px] text-fg-3">{displayTags(r.tags).join(', ')}</span>}
                   </td>
                   <td className="py-1.5"><GradeChip grade={r.grade} /></td>
                   <td className="py-1.5 text-xs text-fg-2">
@@ -135,6 +162,10 @@ export default async function OverviewPage({ searchParams }: { searchParams: Pro
               ))}
             </tbody>
           </table>
+          </details>
+            );
+          })}
+          </div>
         </Card>
 
         <div className="space-y-4">

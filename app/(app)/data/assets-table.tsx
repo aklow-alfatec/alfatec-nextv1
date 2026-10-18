@@ -5,6 +5,7 @@ import { useMemo, useState } from 'react';
 import { Button, Input } from '@/components/ui';
 import type { AssetInput, AssetRow } from '@/lib/assets';
 import { addAssetAction, deleteAssetAction, updateAssetAction } from './actions';
+import { ASSET_TYPES } from '@/lib/sections';
 
 const cell = 'rounded border border-line-2 bg-bg px-1 py-0.5 text-xs';
 type Draft = { name: string; asset_type: string; category: string; inst_id: string; pull_method: string; lag: string };
@@ -43,7 +44,10 @@ export function AssetsTable({ assets, behind, admin }: { assets: AssetRow[]; beh
     <>
       <td className="p-1"><input className={`${cell} w-44`} value={d.name} onChange={(e) => set({ ...d, name: e.target.value })} /></td>
       <td className="p-1"><input className={`${cell} w-28`} value={d.category} onChange={(e) => set({ ...d, category: e.target.value })} />
-        <input className={`${cell} mt-1 w-28`} value={d.asset_type} onChange={(e) => set({ ...d, asset_type: e.target.value })} /></td>
+        <select className={`${cell} mt-1 w-28`} value={d.asset_type} onChange={(e) => set({ ...d, asset_type: e.target.value })}>
+          {!(ASSET_TYPES as readonly string[]).includes(d.asset_type) && <option value={d.asset_type}>{d.asset_type || 'type...'}</option>}
+          {ASSET_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
+        </select></td>
       <td className="p-1"><input className={`${cell} w-28`} value={d.pull_method} onChange={(e) => set({ ...d, pull_method: e.target.value })} />
         <input className={`${cell} mt-1 w-28`} placeholder="inst_id" value={d.inst_id} onChange={(e) => set({ ...d, inst_id: e.target.value })} /></td>
       <td className="p-1"><input className={`${cell} w-14`} placeholder="none" value={d.lag} onChange={(e) => set({ ...d, lag: e.target.value })} /></td>

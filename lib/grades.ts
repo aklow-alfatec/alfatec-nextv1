@@ -1,4 +1,5 @@
 import sql from './db';
+import { sectionOf, type SectionKey } from './sections';
 import { readingInfo } from './grade-zones';
 
 /** Server-side only (imports the database). Grades from `daily_indicator_json`, as nextv0 shows them:
@@ -13,6 +14,8 @@ export interface ActivePipeline {
   symbol: string;
   title: string;           // GOLD_V2A -> GOLD (nextv0 card title)
   tags: string[];
+  assetType: string | null; // assets.asset_type of the symbol
+  section: SectionKey;      // dashboard section (lib/sections.ts)
 }
 
 export interface GradeCell {
@@ -63,12 +66,16 @@ export function readingFromJson(payload: unknown, symbol: string): number | null
 }
 
 export async function activePipelines(): Promise<ActivePipeline[]> {
-  const rows = await sql<{ pipelinedata: unknown; tags: string[] | null }[]>`
-    SELECT pipelinedata, tags FROM pipeline WHERE active = TRUE`;
+  const rows = await sql<{ pipelinedata: unknown; tags: string[] | null; asset_type: string | null }[]>`
+    SELECT p.pipelinedata, p.tags, a.asset_type FROM pipeline p
+    LEFT JOIN assets a ON a.symbol = p.pipelinedata->>'symbol'
+    WHERE p.active = TRUE`;
   return rows
     .map((r) => {
       const d = (typeof r.pipelinedata === 'string' ? JSON.parse(r.pipelinedata) : r.pipelinedata) as { name: string; symbol: string };
-      return { name: d.name, symbol: d.symbol, title: d.name.split('_')[0] || d.symbol, tags: r.tags ?? [] };
+      const tags = r.tags ?? [];
+      return { name: d.name, symbol: d.symbol, title: d.name.split('_')[0] || d.symbol, tags, assetType: r.asset_type,
+        section: sectionOf(r.asset_type, tags) };
     })
     .sort((a, b) => a.title.localeCompare(b.title));
 }
