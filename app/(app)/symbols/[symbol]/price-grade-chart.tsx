@@ -52,7 +52,10 @@ export function PriceGradeChart({ prices, weekly }: {
       </svg>
       <div className="pointer-events-none absolute inset-0 text-[10px] text-fg-3">
         {ticks.map((v) => <span key={v} className="num absolute right-1" style={{ top: `${(Y(v) / H) * 100}%`, transform: 'translateY(-100%)' }}>{fmt(v)}</span>)}
-        <span className="absolute left-1" style={{ top: `${((gTop - 14) / H) * 100}%` }}>Grade % each Friday (undervalued at the bottom)</span>
+        <span className="absolute left-1 top-0 rounded bg-surface/80 px-1 text-[11px] font-semibold text-fg-2">Price <span className="font-normal text-fg-3">· daily close</span></span>
+        <span className="absolute left-1 rounded bg-surface/80 px-1 text-[11px] font-semibold text-fg-2" style={{ top: `${((gTop - 16) / H) * 100}%` }}>
+          Grade % <span className="font-normal text-fg-3">· each Friday, undervalued at the bottom</span>
+        </span>
         {[20, 40, 80, 100].map((v) => (
           <span key={v} className="num absolute right-1" style={{ top: `${(G(v) / H) * 100}%`, transform: v === 20 ? 'none' : 'translateY(-100%)' }}>{v}</span>
         ))}
