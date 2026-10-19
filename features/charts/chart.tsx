@@ -90,6 +90,13 @@ export function MultiPaneChart({ series, equity, trades, titles, extraRows, clas
   const host = useRef<HTMLDivElement>(null);
   const chartRef = useRef<IChartApi | null>(null);
   const rangeRef = useRef<{ from: Time; to: Time } | null>(null);
+  // the zoom is kept across rebuilds (theme, log scale) but not when the data's time span changes (e.g. the
+  // symbol page's 1Y -> ALL): new data opens fitted to all of it
+  const spanRef = useRef('');
+  const span = useMemo(() => {
+    const ts = [...series.map((s) => s.t), equity?.t ?? []].filter((x) => x.length);
+    return ts.length ? `${Math.min(...ts.map((x) => x[0]))}-${Math.max(...ts.map((x) => x[x.length - 1]))}` : '';
+  }, [series, equity]);
   const [readout, setReadout] = useState<Readout | null>(null);
   const [tops, setTops] = useState<{ kind: PaneKind; top: number }[]>([]);
   const [log, setLog] = useState(true);
@@ -121,7 +128,8 @@ export function MultiPaneChart({ series, equity, trades, titles, extraRows, clas
       },
       grid: { vertLines: { color: th.line }, horzLines: { color: th.line } },
       rightPriceScale: { borderColor: th.line2, minimumWidth: 56 },
-      timeScale: { borderColor: th.line2, timeVisible: false, rightOffset: 2 },
+      // minBarSpacing far below the 0.5 px default, so "fit" can show decades of daily bars (GOLD since 1975)
+      timeScale: { borderColor: th.line2, timeVisible: false, rightOffset: 2, minBarSpacing: 0.01 },
       crosshair: { mode: CrosshairMode.Normal, vertLine: { color: th.text3, style: LineStyle.Dashed }, horzLine: { visible: false, labelVisible: false } },
     });
     chartRef.current = chart;
@@ -270,6 +278,10 @@ export function MultiPaneChart({ series, equity, trades, titles, extraRows, clas
     };
     chart.subscribeCrosshairMove(onMove as never);
 
+    if (spanRef.current !== span) {
+      spanRef.current = span;
+      rangeRef.current = null;
+    }
     if (rangeRef.current) {
       try {
         chart.timeScale().setVisibleRange(rangeRef.current);
@@ -290,7 +302,7 @@ export function MultiPaneChart({ series, equity, trades, titles, extraRows, clas
       chart.remove();
       chartRef.current = null;
     };
-  }, [series, equity, trades, extraRows, panes, log, themeTick]);
+  }, [series, equity, trades, extraRows, panes, log, themeTick, span]);
 
   return (
     <div className={className}>
