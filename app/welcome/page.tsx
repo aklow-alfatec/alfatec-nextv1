@@ -19,7 +19,7 @@ const ROWS = [
 const STEPS = [
   { n: '01', title: 'Proprietary algorithm', text: 'Every asset is measured by our proprietary valuation algorithm across several independent dimensions, refined over decades of market history.' },
   { n: '02', title: 'One grade, every Friday', text: 'The measurements combine into a single grade after the US close — placing every asset on one scale, from Extremely Overvalue to Extremely Undervalue.' },
-  { n: '03', title: 'Act on the extremes', text: 'Grade changes arrive by email, and every grade can be backtested as a strategy before you act on it.' },
+  { n: '03', title: 'Act on the extremes', text: 'Grade changes arrive by email, so you see an asset move into the extremes the week it happens.' },
 ];
 
 const icon = (d: React.ReactNode) => (
@@ -31,13 +31,7 @@ const FEATURES = [
     icon: icon(<><rect x="3" y="3" width="7" height="7" rx="1.5" /><rect x="14" y="3" width="7" height="7" rx="1.5" /><rect x="3" y="14" width="7" height="7" rx="1.5" /><rect x="14" y="14" width="7" height="7" rx="1.5" /></>) },
   { title: 'Symbol insight', text: 'Price and grade on one zoomable chart, with the components behind each grade.',
     icon: icon(<><path d="M3 3v18h18" /><path d="M7 15l4-4 3 3 5-6" /></>) },
-  { title: 'Strategy Studio', text: 'Build strategies as visual graphs from 100+ building blocks, then backtest them.',
-    icon: icon(<><circle cx="5" cy="6" r="2.5" /><circle cx="19" cy="6" r="2.5" /><circle cx="12" cy="18" r="2.5" /><path d="M7.5 6h9M6.5 8l4.3 7.8M17.5 8l-4.3 7.8" /></>) },
-  { title: 'Experiments', text: 'Walk-forward testing with honest overfitting checks — not just the best-looking backtest.',
-    icon: icon(<path d="M4 20V10M10 20V4M16 20v-7M22 20H2" />) },
-  { title: 'Edge Lab & Kelly', text: 'Find and size edges, always measured against the base rate.',
-    icon: icon(<><circle cx="12" cy="12" r="9" /><circle cx="12" cy="12" r="5" /><circle cx="12" cy="12" r="1.5" /></>) },
-  { title: 'Alerts', text: 'Grade-change emails today; live trading alerts on Telegram coming.',
+  { title: 'Alerts', text: 'An email whenever a grade changes, so nothing important slips past you.',
     icon: icon(<><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9" /><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0" /></>) },
 ];
 
@@ -131,7 +125,7 @@ export default function Welcome() {
         <div className="wrap">
           <div className="reveal" style={{ maxWidth: 640 }}>
             <div className="eyebrow">How it works</div>
-            <h2 className="display h2">One grade. Every Friday. No noise.</h2>
+            <h2 className="display h2">One grade, every week, no noise.</h2>
           </div>
           <div className="steps" style={{ marginTop: 56 }}>
             {STEPS.map((s) => (
@@ -150,7 +144,7 @@ export default function Welcome() {
         <div className="wrap">
           <div className="reveal" style={{ maxWidth: 640 }}>
             <div className="eyebrow">What&apos;s inside</div>
-            <h2 className="display h2">From a weekly grade to a tested strategy.</h2>
+            <h2 className="display h2">Everything you need to read the market.</h2>
           </div>
           <div className="feat" style={{ marginTop: 56 }}>
             {FEATURES.map((f) => (
