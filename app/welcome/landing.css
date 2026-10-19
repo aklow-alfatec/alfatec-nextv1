@@ -1,0 +1,80 @@
+/* Public landing page (app/welcome). Always dark, whatever the app theme; every rule is scoped to .lp.
+   Approved mockup: https://claude.ai/artifact/DSNuoXTAAdPZmBd6JUbZtJ */
+.lp{--lp-bg:#0E1014;--lp-bg2:#0B0D11;--lp-surface:#12151B;--lp-raised:#161922;--lp-line:#20242E;--lp-line2:#2A303C;
+  --lp-text:#E6E8EE;--lp-text2:#AEB6C4;--lp-text3:#8A93A4;--lp-accent:#F2A93B;
+  font-family:var(--font-sans),system-ui,sans-serif;color:var(--lp-text);background:var(--lp-bg);overflow:hidden;min-height:100vh;color-scheme:dark}
+.lp a{text-decoration:none}
+.lp .wrap{max-width:1200px;margin:0 auto;padding:0 24px;box-sizing:border-box}
+.lp .display{font-family:var(--font-brand),var(--font-sans),sans-serif;font-weight:800;letter-spacing:-0.025em}
+.lp .hero{display:grid;grid-template-columns:minmax(0,1.05fr) minmax(0,1fr);gap:56px;align-items:center}
+.lp .steps{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:20px}
+.lp .feat{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px}
+.lp .navlinks{display:flex;gap:28px}
+.lp .navlinks a{color:var(--lp-text2)}.lp .navlinks a:hover{color:var(--lp-text)}
+@media (max-width:980px){.lp .hero{grid-template-columns:minmax(0,1fr)}.lp .feat{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media (max-width:760px){.lp .steps{grid-template-columns:minmax(0,1fr)}.lp .navlinks{display:none}}
+@media (max-width:560px){.lp .feat{grid-template-columns:minmax(0,1fr)}}
+
+.lp .eyebrow{font-size:13px;letter-spacing:.12em;text-transform:uppercase;color:var(--lp-accent);font-weight:600}
+.lp .h2{margin:14px 0 0;font-size:clamp(32px,3.6vw,46px);line-height:1.1;color:#fff}
+.lp .card{border:1px solid var(--lp-line);border-radius:16px;background:var(--lp-surface);padding:26px;transition:transform .25s ease,border-color .25s ease,background .25s ease}
+.lp .card:hover{transform:translateY(-4px);border-color:#3A4253;background:var(--lp-raised)}
+.lp .card h3{margin:18px 0 0;font-size:18px;font-weight:600}
+.lp .card p{margin:8px 0 0;font-size:15px;line-height:1.6;color:var(--lp-text2)}
+.lp .btn{display:inline-flex;align-items:center;gap:8px;border-radius:12px;font-weight:600;transition:transform .2s ease,box-shadow .2s ease}
+.lp .btn:hover{transform:translateY(-1px)}
+.lp .btn-primary{background:var(--lp-accent);color:#140E02}
+.lp .btn-primary:hover{box-shadow:0 8px 28px rgba(242,169,59,.28)}
+.lp .btn-ghost{border:1px solid var(--lp-line2);color:var(--lp-text);font-weight:500}
+
+/* backdrop grid drifting slowly */
+.lp .gridbg{position:absolute;inset:0;background-image:linear-gradient(rgba(138,147,164,.07) 1px,transparent 1px),linear-gradient(90deg,rgba(138,147,164,.07) 1px,transparent 1px);background-size:56px 56px;animation:lp-drift 40s linear infinite;-webkit-mask-image:radial-gradient(ellipse at 70% 30%,#000 0%,transparent 70%);mask-image:radial-gradient(ellipse at 70% 30%,#000 0%,transparent 70%)}
+@keyframes lp-drift{to{background-position:56px 56px}}
+
+/* entrance */
+@keyframes lp-rise{from{opacity:0;transform:translateY(22px)}to{opacity:1;transform:none}}
+@keyframes lp-pop{from{opacity:0;transform:translateY(10px) scale(.96)}to{opacity:1;transform:none}}
+.lp .in{animation:lp-rise .9s cubic-bezier(.2,.7,.2,1) both}
+.lp .d1{animation-delay:.08s}.lp .d2{animation-delay:.2s}.lp .d3{animation-delay:.34s}.lp .d4{animation-delay:.5s}.lp .d5{animation-delay:.68s}
+@keyframes lp-strip{from{opacity:0;transform:translate(-10px,10px)}to{opacity:1;transform:none}}
+.lp .mk polygon{animation:lp-strip .7s cubic-bezier(.2,.7,.2,1) both}
+.lp .mk polygon:nth-child(2){animation-delay:.15s}.lp .mk polygon:nth-child(3){animation-delay:.25s}.lp .mk polygon:nth-child(4){animation-delay:.35s}.lp .mk polygon:nth-child(5){animation-delay:.45s}
+
+/* hero card */
+@keyframes lp-draw{0%{stroke-dashoffset:1100}55%{stroke-dashoffset:0}100%{stroke-dashoffset:0}}
+.lp .gline{stroke-dasharray:1100;animation:lp-draw 7s ease-in-out infinite}
+@keyframes lp-sweep{0%{transform:translateX(0)}50%{transform:translateX(496px)}100%{transform:translateX(0)}}
+.lp .cross{animation:lp-sweep 9s ease-in-out infinite}
+@keyframes lp-blink{0%,100%{opacity:.35}50%{opacity:1}}
+.lp .live{animation:lp-blink 2.4s ease-in-out infinite}
+@keyframes lp-float{0%,100%{transform:translateY(0)}50%{transform:translateY(-8px)}}
+.lp .float{animation:lp-float 6s ease-in-out infinite}
+.lp .row{animation:lp-pop .6s cubic-bezier(.2,.7,.2,1) both}
+.lp .r1{animation-delay:.9s}.lp .r2{animation-delay:1.05s}.lp .r3{animation-delay:1.2s}.lp .r4{animation-delay:1.35s}
+
+/* scroll reveal (fallback: plays on load) */
+.lp .reveal{animation:lp-rise .9s cubic-bezier(.2,.7,.2,1) both}
+@supports (animation-timeline: view()){
+  .lp .reveal{animation:lp-rise linear both;animation-timeline:view();animation-range:entry 0% entry 100%}
+}
+
+/* grade scale: one spectrum of 7 equal segments; on phones the same 7 as equal rows */
+.lp .scale{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:8px}
+.lp .seg{position:relative;overflow:hidden;height:168px;border-radius:16px;display:flex;align-items:flex-end;padding:16px;box-sizing:border-box;transform-origin:bottom;animation:lp-grow .7s cubic-bezier(.2,.7,.2,1) both;transition:transform .25s ease}
+.lp .seg:hover{transform:translateY(-6px)}
+.lp .segname{position:relative;font-weight:700;font-size:15px;line-height:1.25}
+.lp .s1{animation-delay:.05s}.lp .s2{animation-delay:.15s}.lp .s3{animation-delay:.25s}.lp .s4{animation-delay:.35s}.lp .s5{animation-delay:.45s}.lp .s6{animation-delay:.55s}.lp .s7{animation-delay:.65s}
+@keyframes lp-grow{from{opacity:0;transform:scaleY(.15)}to{opacity:1;transform:none}}
+.lp .sheen{position:absolute;top:0;bottom:0;left:-60%;width:50%;background:linear-gradient(100deg,transparent,rgba(255,255,255,.45),transparent);animation:lp-sheen 5.6s ease-in-out infinite}
+.lp .s2 .sheen{animation-delay:.25s}.lp .s3 .sheen{animation-delay:.5s}.lp .s4 .sheen{animation-delay:.75s}.lp .s5 .sheen{animation-delay:1s}.lp .s6 .sheen{animation-delay:1.25s}.lp .s7 .sheen{animation-delay:1.5s}
+@keyframes lp-sheen{0%,55%{left:-60%}85%,100%{left:130%}}
+.lp .marker{position:absolute;top:-22px;left:0;width:calc(100% / 7);display:flex;justify-content:center;animation:lp-glide 10s ease-in-out infinite}
+@keyframes lp-glide{0%,6%{transform:translateX(0)}50%,56%{transform:translateX(600%)}100%{transform:translateX(0)}}
+@supports (animation-timeline: view()){.lp .seg{animation:lp-grow linear both;animation-timeline:view();animation-range:entry 0% entry 100%}}
+@media (max-width:900px){
+  .lp .scale{grid-template-columns:minmax(0,1fr)}
+  .lp .seg{height:64px;align-items:center;transform-origin:left}
+  .lp .marker{display:none}
+  .lp .scaleends{flex-direction:column;gap:4px}
+}
+@media (prefers-reduced-motion: reduce){.lp *{animation:none !important;transition:none !important}}
