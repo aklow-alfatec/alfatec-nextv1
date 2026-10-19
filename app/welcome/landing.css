@@ -1,8 +1,16 @@
-/* Public landing page (app/welcome). Always dark, whatever the app theme; every rule is scoped to .lp.
+/* Public landing page (app/welcome). Dark by default, light with <html data-theme="light"> (the app's saved theme,
+   toggled in the landing nav); every rule is scoped to .lp.
    Approved mockup: https://claude.ai/artifact/DSNuoXTAAdPZmBd6JUbZtJ */
-.lp{--lp-bg:#0E1014;--lp-bg2:#0B0D11;--lp-surface:#12151B;--lp-raised:#161922;--lp-line:#20242E;--lp-line2:#2A303C;
-  --lp-text:#E6E8EE;--lp-text2:#AEB6C4;--lp-text3:#8A93A4;--lp-accent:#F2A93B;
-  font-family:var(--font-sans),system-ui,sans-serif;color:var(--lp-text);background:var(--lp-bg);overflow:hidden;min-height:100vh;color-scheme:dark}
+.lp{--lp-bg:#0E1014;--lp-bg2:#0B0D11;--lp-surface:#12151B;--lp-raised:#161922;--lp-line:#20242E;--lp-line2:#2A303C;--lp-line-hover:#3A4253;
+  --lp-text:#E6E8EE;--lp-text2:#AEB6C4;--lp-text3:#8A93A4;--lp-head:#FFFFFF;--lp-logo:#FFFFFF;
+  --lp-accent:#F2A93B;--lp-accent-text:#F2A93B;--lp-normal:#2A303C;--lp-line-grade:#66ccff;--lp-live:#4CC38A;
+  --lp-shadow:0 30px 80px rgba(0,0,0,.45);--lp-grid:rgba(138,147,164,.07);
+  font-family:var(--font-sans),system-ui,sans-serif;color:var(--lp-text);background:var(--lp-bg);overflow:hidden;min-height:100vh;color-scheme:dark;
+  transition:background .3s ease,color .3s ease}
+html[data-theme='light'] .lp{--lp-bg:#F5F6F8;--lp-bg2:#ECEEF2;--lp-surface:#FFFFFF;--lp-raised:#F3F4F6;--lp-line:#E2E5EA;--lp-line2:#CDD2DA;--lp-line-hover:#B7BEC9;
+  --lp-text:#12151B;--lp-text2:#3D4552;--lp-text3:#5A6372;--lp-head:#0F3963;--lp-logo:#0F3963;
+  --lp-accent:#F2A93B;--lp-accent-text:#B06A00;--lp-normal:#DDE1E7;--lp-line-grade:#2F8FD8;--lp-live:#1E7A4C;
+  --lp-shadow:0 24px 60px rgba(15,57,99,.14);--lp-grid:rgba(15,57,99,.07);color-scheme:light}
 .lp a{text-decoration:none}
 .lp .wrap{max-width:1200px;margin:0 auto;padding:0 24px;box-sizing:border-box}
 .lp .display{font-family:var(--font-brand),var(--font-sans),sans-serif;font-weight:800;letter-spacing:-0.025em}
@@ -15,10 +23,10 @@
 @media (max-width:760px){.lp .steps{grid-template-columns:minmax(0,1fr)}.lp .navlinks{display:none}}
 @media (max-width:560px){.lp .feat{grid-template-columns:minmax(0,1fr)}}
 
-.lp .eyebrow{font-size:13px;letter-spacing:.12em;text-transform:uppercase;color:var(--lp-accent);font-weight:600}
-.lp .h2{margin:14px 0 0;font-size:clamp(32px,3.6vw,46px);line-height:1.1;color:#fff}
+.lp .eyebrow{font-size:13px;letter-spacing:.12em;text-transform:uppercase;color:var(--lp-accent-text);font-weight:600}
+.lp .h2{margin:14px 0 0;font-size:clamp(32px,3.6vw,46px);line-height:1.1;color:var(--lp-head)}
 .lp .card{border:1px solid var(--lp-line);border-radius:16px;background:var(--lp-surface);padding:26px;transition:transform .25s ease,border-color .25s ease,background .25s ease}
-.lp .card:hover{transform:translateY(-4px);border-color:#3A4253;background:var(--lp-raised)}
+.lp .card:hover{transform:translateY(-4px);border-color:var(--lp-line-hover);background:var(--lp-raised)}
 .lp .card h3{margin:18px 0 0;font-size:18px;font-weight:600}
 .lp .card p{margin:8px 0 0;font-size:15px;line-height:1.6;color:var(--lp-text2)}
 .lp .btn{display:inline-flex;align-items:center;gap:8px;border-radius:12px;font-weight:600;transition:transform .2s ease,box-shadow .2s ease}
@@ -28,7 +36,7 @@
 .lp .btn-ghost{border:1px solid var(--lp-line2);color:var(--lp-text);font-weight:500}
 
 /* backdrop grid drifting slowly */
-.lp .gridbg{position:absolute;inset:0;background-image:linear-gradient(rgba(138,147,164,.07) 1px,transparent 1px),linear-gradient(90deg,rgba(138,147,164,.07) 1px,transparent 1px);background-size:56px 56px;animation:lp-drift 40s linear infinite;-webkit-mask-image:radial-gradient(ellipse at 70% 30%,#000 0%,transparent 70%);mask-image:radial-gradient(ellipse at 70% 30%,#000 0%,transparent 70%)}
+.lp .gridbg{position:absolute;inset:0;background-image:linear-gradient(var(--lp-grid) 1px,transparent 1px),linear-gradient(90deg,var(--lp-grid) 1px,transparent 1px);background-size:56px 56px;animation:lp-drift 40s linear infinite;-webkit-mask-image:radial-gradient(ellipse at 70% 30%,#000 0%,transparent 70%);mask-image:radial-gradient(ellipse at 70% 30%,#000 0%,transparent 70%)}
 @keyframes lp-drift{to{background-position:56px 56px}}
 
 /* entrance */
@@ -78,3 +86,9 @@
   .lp .scaleends{flex-direction:column;gap:4px}
 }
 @media (prefers-reduced-motion: reduce){.lp *{animation:none !important;transition:none !important}}
+
+/* theme toggle */
+.lp .themebtn{display:inline-grid;place-items:center;width:44px;height:44px;border-radius:10px;border:1px solid var(--lp-line2);background:transparent;color:var(--lp-text2);cursor:pointer;transition:color .2s ease,border-color .2s ease,transform .2s ease}
+.lp .themebtn:hover{color:var(--lp-head);border-color:var(--lp-line-hover)}
+.lp .themebtn svg{transition:transform .5s cubic-bezier(.2,.7,.2,1)}
+.lp .themebtn:active svg{transform:rotate(-30deg) scale(.9)}
