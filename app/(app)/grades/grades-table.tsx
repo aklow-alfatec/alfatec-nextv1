@@ -62,7 +62,7 @@ export function GradesTable({ rows, weeks }: { rows: GradeRow[]; weeks: string[]
                 </th>
               ))}
               <th className="num pl-2 text-right font-medium">Δ</th>
-              <th className="pl-3 text-left font-medium">Reading</th>
+              <th className="pl-3 text-left font-medium">Grades</th>
               <th className="pl-3 text-left font-medium">Position bias</th>
               <th className="pl-3 text-right font-medium">Potential risk</th>
               <th className="pl-3 text-right font-medium">Potential reward</th>
@@ -101,7 +101,7 @@ export function GradesTable({ rows, weeks }: { rows: GradeRow[]; weeks: string[]
                   <td className={`num pl-2 text-right ${r.delta ? (r.delta > 0 ? 'text-positive' : 'text-negative') : 'text-fg-3'}`}>
                     {r.delta === null ? '-' : r.delta > 0 ? `+${r.delta}` : r.delta}
                   </td>
-                  <td className="whitespace-nowrap pl-3"><ReadingTag reading={r.readingValue} /></td>
+                  <td className="whitespace-nowrap pl-3"><ReadingTag reading={r.readingValue} className="w-40 justify-center" /></td>
                   <td className="pl-3 font-bold" style={{ color: BIAS_COLOR[r.rr?.potential_bias ?? ''] }}>{r.rr?.potential_bias ?? '-'}</td>
                   <td className="num pl-3 text-right">{r.rr ? `${r.rr.potential_risk}%` : '-'}</td>
                   <td className="num pl-3 text-right">{r.rr ? `${r.rr.potential_reward}%` : '-'}</td>
