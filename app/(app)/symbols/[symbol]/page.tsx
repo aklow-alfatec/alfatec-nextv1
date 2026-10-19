@@ -2,7 +2,7 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { Button, Card, GradeChip, PartScoreChip, ReadingTag } from '@/components/ui';
 import { fridays, lastFinalFriday } from '@/lib/grades';
-import { activePipelineFor, assetInfo, components, graphForPipeline, prices, runsForSymbol, weeklyPayloads } from '@/lib/symbols';
+import { activePipelineFor, assetInfo, components, firstGradeDate, graphForPipeline, prices, runsForSymbol, weeklyPayloads } from '@/lib/symbols';
 import { SymbolChart } from './symbol-chart';
 import { maskedName } from '@/lib/access';
 import { currentViewer } from '@/lib/viewer';
@@ -23,9 +23,13 @@ export default async function SymbolPage({ params, searchParams }: { params: Pro
   const { range: r } = await searchParams;
   const range: Range = (r && r in RANGES ? r : '1y') as Range;
   const end = lastFinalFriday();
-  const weeks = fridays(end, RANGES[range]);
+  // ALL = the whole graded history (from the first grade), not the whole price history; no grades -> all prices
+  const gradedFrom = range === 'all' ? await firstGradeDate(symbol) : null;
+  const weeks = range === 'all' && gradedFrom
+    ? fridays(end, Math.max(1, Math.floor((Date.parse(end) - Date.parse(gradedFrom)) / 604800000) + 1))
+    : fridays(end, RANGES[range]);
   const heatWeeks = fridays(end, 54);
-  const priceStart = range === 'all' ? '1900-01-01' : weeks[0];
+  const priceStart = range === 'all' ? (gradedFrom ? weeks[0] : '1900-01-01') : weeks[0];
 
   // guest view: no grade breakdown, runs, Studio links or data sources; part names masked as Indicator n
   const guest = (await currentViewer())?.guest ?? true;

@@ -40,6 +40,12 @@ export async function prices(symbol: string, start: string): Promise<{ date: str
   return rows.map((r) => ({ date: iso(r.date), close: Number(r.close) }));
 }
 
+/** Date of the symbol's first stored grade (daily_indicator_json), or null when it has none. */
+export async function firstGradeDate(symbol: string): Promise<string | null> {
+  const [r] = await sql<{ d: Date | null }[]>`SELECT min(date) AS d FROM daily_indicator_json WHERE symbol = ${symbol}`;
+  return r?.d ? iso(r.d) : null;
+}
+
 export async function activePipelineFor(symbol: string): Promise<{ name: string; nodes: PipelineNode[]; tags: string[] } | null> {
   const rows = await sql<{ pipelinedata: unknown; tags: string[] | null }[]>`
     SELECT pipelinedata, tags FROM pipeline WHERE active = TRUE AND pipelinedata->>'symbol' = ${symbol} LIMIT 1`;
