@@ -6,6 +6,7 @@ export const NAV: NavGroup[] = [
     items: [
       { label: 'Overview', href: '/' },
       { label: 'Grades', href: '/grades' },
+      { label: 'Heatmap', href: '/heatmap' },
       { label: 'Symbols', href: '/symbols' },
       { label: 'Trades', href: '/trades' },
     ],
