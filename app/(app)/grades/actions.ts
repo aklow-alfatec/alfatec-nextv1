@@ -24,7 +24,7 @@ export interface DayDetails {
 
 const num = (v: unknown) => (typeof v === 'number' && Number.isFinite(v) ? v : null);
 
-/** The grade breakdown of one symbol on one Friday (heatmap cell details, like nextv0's day-data modal). */
+/** The grade breakdown of one symbol on one Friday (Grades page cell details, like nextv0's day-data modal). */
 export async function dayDetailsAction(symbol: string, friday: string): Promise<DayDetails | null> {
   if (!(await sessionUser())) return null;
   if (!/^\d{4}-\d{2}-\d{2}$/.test(friday)) return null;

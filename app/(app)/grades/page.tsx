@@ -1,7 +1,9 @@
 import Link from 'next/link';
-import { Card, GradeChip, GradeZoneLegend, ReadingTag } from '@/components/ui';
+import { Card, GradeZoneLegend } from '@/components/ui';
 import { activePipelines, componentChanges, fridays, lastFinalFriday, readingLabel, weeklyGrades } from '@/lib/grades';
+import { latestRiskReward } from '@/lib/risk-reward';
 import { ExportCsv } from './export-csv';
+import { GradesTable } from './grades-table';
 
 export const dynamic = 'force-dynamic';
 
@@ -11,18 +13,18 @@ const FILTERS = { all: 'All', under: 'Undervalued', movers: 'Movers' } as const;
 type Filter = keyof typeof FILTERS;
 
 const short = (d: string) => new Date(`${d}T00:00:00Z`).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', timeZone: 'UTC' });
-const yearOf = (d: string) => d.slice(0, 4);
 
 export default async function GradesPage({ searchParams }: { searchParams: Promise<{ range?: string; filter?: string }> }) {
   const sp = await searchParams;
-  const range: Range = (sp.range && sp.range in RANGES ? sp.range : '12w') as Range;
+  const range: Range = (sp.range && sp.range in RANGES ? sp.range : '4w') as Range;
   const filter: Filter = (sp.filter && sp.filter in FILTERS ? sp.filter : 'all') as Filter;
   const end = lastFinalFriday();
   const weeks = fridays(end, RANGES[range]);
   const prev = weeks[weeks.length - 2];
   const pipes = await activePipelines();
   const symbols = pipes.map((p) => p.symbol);
-  const [grid, changes] = await Promise.all([weeklyGrades(symbols, weeks), componentChanges(symbols, prev, end)]);
+  const [grid, changes, rr] = await Promise.all([weeklyGrades(symbols, weeks), componentChanges(symbols, prev, end), latestRiskReward(symbols)]);
+  const rrBy = new Map(rr.map((x) => [x.symbol, x]));
 
   let rows = pipes.map((p) => {
     const grades = weeks.map((w) => grid[p.symbol]?.[w]?.grade ?? null);
@@ -30,11 +32,10 @@ export default async function GradesPage({ searchParams }: { searchParams: Promi
     const before = grades[grades.length - 2];
     const delta = cur !== null && before !== null ? Math.round(cur) - Math.round(before) : null;
     const rd = grid[p.symbol]?.[end]?.reading ?? null;
-    return { ...p, grades, cur, delta, readingValue: rd, reading: readingLabel(rd) };
+    return { ...p, grades, cur, delta, readingValue: rd, reading: readingLabel(rd), rr: rrBy.get(p.symbol) ?? null };
   });
   if (filter === 'under') rows = rows.filter((r) => (r.cur ?? 0) >= 80);
   if (filter === 'movers') rows = rows.filter((r) => r.delta);
-  const wide = weeks.length > 12;
   const link = (p: Partial<{ range: Range; filter: Filter }>) => `/grades?range=${p.range ?? range}&filter=${p.filter ?? filter}`;
   const seg = (on: boolean) => `px-3 py-1 text-sm ${on ? 'bg-raised text-fg' : 'text-fg-2 hover:text-fg'}`;
 
@@ -43,7 +44,7 @@ export default async function GradesPage({ searchParams }: { searchParams: Promi
       <div className="flex flex-wrap items-center gap-3">
         <div>
           <h1 className="text-xl font-semibold">Grades</h1>
-          <p className="text-sm text-fg-2">{pipes.length} active graphs · weekly, Fridays · click a symbol for its breakdown</p>
+          <p className="text-sm text-fg-2">{pipes.length} active graphs · weekly, Fridays · click a grade for that week's breakdown, a symbol for its page · risk / reward notes are edited on Trades</p>
         </div>
         <div className="ml-auto flex flex-wrap gap-2">
           <div className="flex overflow-hidden rounded-control border border-line-2">
@@ -61,44 +62,10 @@ export default async function GradesPage({ searchParams }: { searchParams: Promi
       </div>
 
       <Card>
-        <div className="overflow-x-auto">
-          <table className="border-separate border-spacing-1 text-xs">
-            <thead>
-              <tr className="text-fg-3">
-                <th className="sticky left-0 z-10 bg-surface pr-2 text-left font-medium">Symbol</th>
-                {weeks.map((w, i) => (
-                  <th key={w} className="num min-w-10 font-normal" title={w}>
-                    {wide ? (i === 0 || yearOf(w) !== yearOf(weeks[i - 1]) ? yearOf(w) : '') : short(w)}
-                  </th>
-                ))}
-                <th className="num pl-2 text-right font-medium">Δ</th>
-                <th className="pl-3 text-left font-medium">Reading</th>
-              </tr>
-            </thead>
-            <tbody>
-              {rows.map((r) => (
-                <tr key={r.symbol}>
-                  <td className="sticky left-0 z-10 bg-surface pr-2">
-                    <Link href={`/symbols/${encodeURIComponent(r.symbol)}`} className="font-semibold hover:text-accent">{r.title}</Link>
-                  </td>
-                  {r.grades.map((g, i) =>
-                    wide ? (
-                      <td key={weeks[i]} title={`${weeks[i]}: ${g === null ? 'no data' : g.toFixed(0)}`} className="p-0">
-                        <GradeChip grade={g} className="h-6 min-w-0 w-2 px-0 text-[0px]" />
-                      </td>
-                    ) : (
-                      <td key={weeks[i]} className="text-center"><GradeChip grade={g} /></td>
-                    ),
-                  )}
-                  <td className={`num pl-2 text-right ${r.delta ? (r.delta > 0 ? 'text-positive' : 'text-negative') : 'text-fg-3'}`}>
-                    {r.delta === null ? '-' : r.delta > 0 ? `+${r.delta}` : r.delta}
-                  </td>
-                  <td className="whitespace-nowrap pl-3"><ReadingTag reading={r.readingValue} /></td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+        <GradesTable
+          weeks={weeks}
+          rows={rows.map((r) => ({ symbol: r.symbol, title: r.title, section: r.section, grades: r.grades, delta: r.delta, readingValue: r.readingValue, rr: r.rr }))}
+        />
         <div className="mt-3 space-y-1.5 text-[11px] text-fg-3">
           <span>Grade zones (as nextv0)</span>
           <GradeZoneLegend />
