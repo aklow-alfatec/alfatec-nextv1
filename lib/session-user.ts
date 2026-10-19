@@ -9,9 +9,12 @@ export const sessionUser = cache(async (): Promise<{ id: string; name: string | 
   const s = await auth();
   const u = s?.user as { id?: string; name?: string | null; email?: string | null; role?: string } | undefined;
   if (!u?.id) return null;
-  const [row] = await sql<{ name: string | null; email: string; role: string | null }[]>`
-    SELECT name, email, role FROM users WHERE id::text = ${u.id}`;
+  const [row] = await sql<{ name: string | null; email: string; role: string | null; changed: number | null }[]>`
+    SELECT name, email, role, floor(extract(epoch from password_changed_at))::bigint AS changed FROM users WHERE id::text = ${u.id}`;
   if (!row) return null;
+  // signed in before the password was last changed: that session is over (change password signs out other devices)
+  const issuedAt = (s as { issuedAt?: number } | null)?.issuedAt;
+  if (row.changed !== null && (issuedAt === undefined || issuedAt < Number(row.changed))) return null;
   return { id: u.id, name: row.name ?? u.name ?? null, email: row.email ?? u.email ?? null, role: row.role ?? null };
 });
 

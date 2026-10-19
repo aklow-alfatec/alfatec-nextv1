@@ -5,7 +5,9 @@ import { isAlfatecEngine } from '@/lib/engine-base';
 import { listGuests } from '@/lib/guests';
 import { isAdminRole } from '@/lib/session-user';
 import { currentViewer } from '@/lib/viewer';
+import { mailConfigured } from '@/lib/mailer';
 import { GuestsCard } from './guests-card';
+import { PasswordCard } from './password-card';
 import { UsersTable } from './users-table';
 
 export const dynamic = 'force-dynamic';
@@ -46,9 +48,10 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
             {!guest && <div><dt className="text-xs text-fg-3">Role</dt><dd>{user?.role ?? '-'}</dd></div>}
           </dl>
           <p className="mt-2 text-[11px] text-fg-3">
-            {guest ? 'To change your password, ask the person who invited you.' : 'Same account as nextv0; change the password there until it moves here.'}
+            {guest ? 'Your account is for this app only.' : 'Same account and password as nextv0.'}
           </p>
         </Card>
+        <PasswordCard />
         {health && (
           <Card title="Services">
             <div className="space-y-2 text-sm">
@@ -63,7 +66,7 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
           </Card>
         )}
       </div>
-      {superadmin && <GuestsCard guests={guests} />}
+      {superadmin && <GuestsCard guests={guests} mailOk={mailConfigured()} />}
       {admin && (
         <Card title={`Users (${users.length})`}>
           <UsersTable users={users} me={user?.email ?? null} />

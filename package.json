@@ -16,6 +16,7 @@
     "lightweight-charts": "5.0.9",
     "next": "15.5.7",
     "next-auth": "5.0.0-beta.29",
+    "nodemailer": "6.10.1",
     "postgres": "^3.4.6",
     "react": "19.1.1",
     "react-dom": "19.1.1",
@@ -24,6 +25,7 @@
   "devDependencies": {
     "@types/bcrypt": "^5.0.2",
     "@types/node": "22.10.7",
+    "@types/nodemailer": "6.4.17",
     "@types/react": "19.1.15",
     "@types/react-dom": "19.1.9",
     "autoprefixer": "10.4.20",
