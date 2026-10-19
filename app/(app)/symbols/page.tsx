@@ -1,4 +1,6 @@
 import Link from 'next/link';
+import { redirect } from 'next/navigation';
+import { currentViewer } from '@/lib/viewer';
 import { Card, GradeChip, ReadingTag, Table, TBody, TD, TH, THead, TR } from '@/components/ui';
 import sql from '@/lib/db';
 import { activePipelines, lastFinalFriday, latestGrades } from '@/lib/grades';
@@ -6,6 +8,7 @@ import { activePipelines, lastFinalFriday, latestGrades } from '@/lib/grades';
 export const dynamic = 'force-dynamic';
 
 export default async function SymbolsPage() {
+  if ((await currentViewer())?.guest) redirect('/'); // the Symbols list is not part of the guest view
   const pipes = await activePipelines();
   const symbols = pipes.map((p) => p.symbol);
   const [grades, closes] = await Promise.all([

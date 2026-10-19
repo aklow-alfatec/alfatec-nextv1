@@ -1,5 +1,6 @@
 import { auth } from '@/auth';
 import { engineTarget, resetEngineTarget } from '@/lib/engine-base';
+import { currentViewer } from '@/lib/viewer';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
@@ -9,6 +10,7 @@ export const runtime = 'nodejs';
 async function forward(req: Request, ctx: { params: Promise<{ path: string[] }> }) {
   const session = await auth();
   if (!session?.user) return Response.json({ detail: 'Unauthorized' }, { status: 401 });
+  if ((await currentViewer())?.guest ?? true) return Response.json({ detail: 'Not available on this account' }, { status: 403 });
 
   let engine;
   try {

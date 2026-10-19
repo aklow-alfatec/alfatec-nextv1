@@ -3,7 +3,8 @@
 import { revalidatePath } from 'next/cache';
 import { addAsset, deleteAsset, recentValues, updateAsset, upsertCsv, upsertManual, type AssetInput, type CsvRow, type ManualRow } from '@/lib/assets';
 import { engineCall } from '@/lib/engine-server';
-import { requireAdmin, sessionUser } from '@/lib/session-user';
+import { requireAdmin } from '@/lib/session-user';
+import { currentViewer } from '@/lib/viewer';
 
 export interface RecomputeResult {
   start_friday: string;
@@ -36,7 +37,8 @@ export async function deleteAssetAction(symbol: string) {
 }
 
 export async function recentValuesAction(symbol: string) {
-  if (!(await sessionUser())) return [];
+  const v = await currentViewer();
+  if (!v || v.guest) return [];
   return symbol ? recentValues(symbol) : [];
 }
 

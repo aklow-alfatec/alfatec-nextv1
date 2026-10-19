@@ -141,18 +141,18 @@ export function GradesTable({ rows, weeks }: { rows: GradeRow[]; weeks: string[]
                       <thead className="text-xs text-fg-3">
                         <tr>
                           <th className="py-1 text-left font-medium">Component</th>
-                          <th className="py-1 text-right font-medium">Value</th>
+                          {!details.masked && <th className="py-1 text-right font-medium">Value</th>}
                           <th className="py-1 text-center font-medium">Score</th>
-                          <th className="py-1 pl-3 text-left font-medium">Rule</th>
+                          {!details.masked && <th className="py-1 pl-3 text-left font-medium">Rule</th>}
                         </tr>
                       </thead>
                       <tbody>
                         {details.parts.map((p) => (
                           <tr key={p.node} className="border-t border-line">
                             <td className="py-1.5 font-medium">{p.input ?? p.node.replace(/_GRADE$/, '')}</td>
-                            <td className="num py-1.5 text-right">{fmtNum(p.value)}</td>
+                            {!details.masked && <td className="num py-1.5 text-right">{fmtNum(p.value)}</td>}
                             <td className="py-1.5 text-center"><PartScoreChip score={p.score} /></td>
-                            <td className="py-1.5 pl-3 text-xs text-fg-2">{p.rule}</td>
+                            {!details.masked && <td className="py-1.5 pl-3 text-xs text-fg-2">{p.rule}</td>}
                           </tr>
                         ))}
                       </tbody>

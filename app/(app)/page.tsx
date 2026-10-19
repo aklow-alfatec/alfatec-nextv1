@@ -3,6 +3,7 @@ import { Card, GradeChip, ReadingTag, Sparkline } from '@/components/ui';
 import sql from '@/lib/db';
 import { activePipelines, fridays, lastFinalFriday, weeklyGrades } from '@/lib/grades';
 import { displayTags, groupBySection } from '@/lib/sections';
+import { currentViewer } from '@/lib/viewer';
 
 export const dynamic = 'force-dynamic';
 
@@ -58,7 +59,9 @@ export default async function OverviewPage({ searchParams }: { searchParams: Pro
   const symbols = pipes.map((p) => p.symbol);
   const weeks = fridays(week, 12);
   const prev = weeks[weeks.length - 2];
-  const [grid, health, feed] = await Promise.all([weeklyGrades(symbols, weeks), dataHealth(symbols), recent()]);
+  const guest = (await currentViewer())?.guest ?? true;
+  // the guest view shows grades only: no data health or Studio activity (not even queried)
+  const [grid, health, feed] = await Promise.all([weeklyGrades(symbols, weeks), guest ? null : dataHealth(symbols), guest ? [] : recent()]);
 
   const rows = pipes.map((p) => {
     const cur = grid[p.symbol]?.[week];
@@ -185,6 +188,7 @@ export default async function OverviewPage({ searchParams }: { searchParams: Pro
             )}
           </Card>
 
+          {health && (
           <Card title="Data health" actions={<Link className="text-xs text-accent hover:underline" href="/data">Data →</Link>}>
             <ul className="space-y-1.5 text-sm">
               <li className="flex justify-between gap-2">
@@ -210,7 +214,9 @@ export default async function OverviewPage({ searchParams }: { searchParams: Pro
               </li>
             </ul>
           </Card>
+          )}
 
+          {!guest && (
           <Card title="Recent">
             {feed.length === 0 ? (
               <p className="text-sm text-fg-3">No runs or experiments yet.</p>
@@ -225,6 +231,7 @@ export default async function OverviewPage({ searchParams }: { searchParams: Pro
               </ul>
             )}
           </Card>
+          )}
         </div>
       </div>
     </div>

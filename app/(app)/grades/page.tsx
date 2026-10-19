@@ -4,6 +4,7 @@ import { activePipelines, componentChanges, fridays, lastFinalFriday, readingLab
 import { latestRiskReward } from '@/lib/risk-reward';
 import { ExportCsv } from './export-csv';
 import { GradesTable } from './grades-table';
+import { currentViewer } from '@/lib/viewer';
 
 export const dynamic = 'force-dynamic';
 
@@ -23,7 +24,9 @@ export default async function GradesPage({ searchParams }: { searchParams: Promi
   const prev = weeks[weeks.length - 2];
   const pipes = await activePipelines();
   const symbols = pipes.map((p) => p.symbol);
-  const [grid, changes, rr] = await Promise.all([weeklyGrades(symbols, weeks), componentChanges(symbols, prev, end), latestRiskReward(symbols)]);
+  const guest = (await currentViewer())?.guest ?? true;
+  // guest view: no "Component grades that changed" card (not even queried)
+  const [grid, changes, rr] = await Promise.all([weeklyGrades(symbols, weeks), guest ? [] : componentChanges(symbols, prev, end), latestRiskReward(symbols)]);
   const rrBy = new Map(rr.map((x) => [x.symbol, x]));
 
   let rows = pipes.map((p) => {
@@ -44,7 +47,11 @@ export default async function GradesPage({ searchParams }: { searchParams: Promi
       <div className="flex flex-wrap items-center gap-3">
         <div>
           <h1 className="text-xl font-semibold">Grades</h1>
-          <p className="text-sm text-fg-2">{pipes.length} active graphs · weekly, Fridays · click a grade for that week's breakdown, a symbol for its page · risk / reward notes are edited on Trades</p>
+          <p className="text-sm text-fg-2">
+            {guest
+              ? <>{pipes.length} assets · graded weekly, on Fridays · click a grade for that week&apos;s breakdown</>
+              : <>{pipes.length} active graphs · weekly, Fridays · click a grade for that week&apos;s breakdown, a symbol for its page · risk / reward notes are edited on Trades</>}
+          </p>
         </div>
         <div className="ml-auto flex flex-wrap gap-2">
           <div className="flex overflow-hidden rounded-control border border-line-2">
@@ -73,6 +80,7 @@ export default async function GradesPage({ searchParams }: { searchParams: Promi
         </div>
       </Card>
 
+      {!guest && (
       <Card title={`Component grades that changed, ${short(prev)} → ${short(end)}`}>
         {changes.length === 0 ? (
           <p className="text-sm text-fg-3">No component grade changed.</p>
@@ -96,6 +104,7 @@ export default async function GradesPage({ searchParams }: { searchParams: Promi
         )}
         <p className="mt-2 text-[11px] text-fg-3">Each graph adds up its component grades (1 to 5) into the weekly grade; this lists which inputs moved.</p>
       </Card>
+      )}
     </div>
   );
 }

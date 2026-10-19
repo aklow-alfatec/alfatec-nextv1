@@ -1,5 +1,6 @@
 import { auth } from '@/auth';
 import { engineCall } from '@/lib/engine-server';
+import { currentViewer } from '@/lib/viewer';
 import {
   experimentDetail, experimentStatus, getGraph, graphVersion, graphVersions, listExperiments, listGraphs, listRuns,
   runDetail, runStatus, type ListQuery,
@@ -55,6 +56,7 @@ async function answer(path: string[], u: URL): Promise<Response> {
 export async function GET(req: Request, ctx: { params: Promise<{ path: string[] }> }) {
   const session = await auth();
   if (!session?.user) return Response.json({ detail: 'Unauthorized' }, { status: 401 });
+  if ((await currentViewer())?.guest ?? true) return Response.json({ detail: 'Not available on this account' }, { status: 403 });
   const { path } = await ctx.params;
   try {
     return await answer(path, new URL(req.url));

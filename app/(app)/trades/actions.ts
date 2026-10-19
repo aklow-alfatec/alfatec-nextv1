@@ -1,17 +1,17 @@
 'use server';
 
 import { revalidatePath } from 'next/cache';
-import { auth } from '@/auth';
+import { currentViewer } from '@/lib/viewer';
 import { closeTrade, createTrade, deleteClosure, deleteTrade, priceOn, updateClosure, updateNotes } from '@/lib/trades';
 import { upsertRiskReward, type RiskRewardRow } from '@/lib/risk-reward';
 
 export type ActionResult = { ok: true; id?: string } | { ok: false; error: string };
 
 async function uid(): Promise<string> {
-  const s = await auth();
-  const id = (s?.user as { id?: string } | undefined)?.id;
-  if (!id) throw new Error('Not signed in');
-  return id;
+  const v = await currentViewer();
+  if (!v) throw new Error('Not signed in');
+  if (v.guest) throw new Error('Not available on this account');
+  return v.id;
 }
 
 async function run(fn: (userId: string) => Promise<string | void>, ...paths: string[]): Promise<ActionResult> {

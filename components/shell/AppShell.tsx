@@ -4,7 +4,15 @@ import { useRouter } from 'next/navigation';
 import { Sidebar } from './Sidebar';
 import { Button, StatusPill } from '@/components/ui';
 import { LogoMark } from '@/components/brand/Logo';
-import { ALL_NAV } from '@/lib/nav';
+import { navFor } from '@/lib/nav';
+import { setGuestModeAction } from '@/app/actions';
+
+/** What the shell shows: the guest view hides Studio, Admin and Data (lib/access.ts). */
+export interface ShellAccess {
+  guest: boolean;       // guest view (guest account, or a superadmin in guest mode)
+  guestMode: boolean;   // a superadmin previewing the guest view
+  superadmin: boolean;  // the account's real role
+}
 
 function ThemeToggle() {
   const [theme, setTheme] = useState('dark');
@@ -30,7 +38,7 @@ function ThemeToggle() {
   );
 }
 
-function Search() {
+function Search({ guest }: { guest: boolean }) {
   const [open, setOpen] = useState(false);
   const [q, setQ] = useState('');
   const ref = useRef<HTMLInputElement>(null);
@@ -52,7 +60,7 @@ function Search() {
       setTimeout(() => ref.current?.focus(), 0);
     }
   }, [open]);
-  const hits = ALL_NAV.filter((i) => i.label.toLowerCase().includes(q.toLowerCase()));
+  const hits = navFor(guest).flatMap((g) => g.items).filter((i) => i.label.toLowerCase().includes(q.toLowerCase()));
   const go = (href: string) => {
     router.push(href);
     setOpen(false);
@@ -96,29 +104,46 @@ function Search() {
 
 export function AppShell({
   user,
+  access,
   children,
 }: {
   user: { name?: string | null; email?: string | null };
+  access: ShellAccess;
   children: React.ReactNode;
 }) {
   const [open, setOpen] = useState(false);
+  const router = useRouter();
   return (
     <div className="flex h-screen overflow-hidden">
-      <Sidebar user={user} open={open} onClose={() => setOpen(false)} />
+      <Sidebar user={user} access={access} open={open} onClose={() => setOpen(false)} />
       <div className="flex min-w-0 flex-1 flex-col">
         <header className="flex h-14 shrink-0 items-center gap-3 border-b border-line bg-surface px-4">
           <Button variant="ghost" className="h-10 gap-2 px-2 md:hidden" aria-label="Menu" onClick={() => setOpen(true)}>
             <LogoMark className="h-7 w-auto" />
             Menu
           </Button>
-          <Search />
-          <div className="ml-auto hidden items-center gap-2 lg:flex">
+          <Search guest={access.guest} />
+          <div className={access.guest ? 'ml-auto' : 'ml-auto hidden items-center gap-2 lg:flex'}>
+            {!access.guest && <>
             <StatusPill status="idle" label="Prices" detail="n/a" />
             <StatusPill status="idle" label="COT" detail="n/a" />
             <StatusPill status="idle" label="Macro" detail="n/a" />
+            </>}
           </div>
           <ThemeToggle />
         </header>
+        {access.guestMode && (
+          <div className="flex shrink-0 items-center gap-3 border-b border-line bg-accent px-4 py-1.5 text-xs font-medium text-accent-fg" role="status">
+            Guest mode: you are viewing as a guest
+            <button
+              type="button"
+              className="ml-auto rounded-control bg-black/15 px-2 py-0.5 font-semibold hover:bg-black/25"
+              onClick={async () => { await setGuestModeAction(false); router.refresh(); }}
+            >
+              Exit
+            </button>
+          </div>
+        )}
         <main className="min-h-0 flex-1 overflow-y-auto">{children}</main>
       </div>
     </div>

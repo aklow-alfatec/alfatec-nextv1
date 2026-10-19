@@ -1,9 +1,14 @@
 import { redirect } from 'next/navigation';
-import { auth } from '@/auth';
 import { AppShell } from '@/components/shell/AppShell';
+import { isSuperadmin } from '@/lib/access';
+import { currentViewer } from '@/lib/viewer';
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
-  const session = await auth();
-  if (!session?.user) redirect('/login');
-  return <AppShell user={{ name: session.user.name, email: session.user.email }}>{children}</AppShell>;
+  const v = await currentViewer();     // role from the database: a removed account is signed out here
+  if (!v) redirect('/login');
+  return (
+    <AppShell user={{ name: v.name, email: v.email }} access={{ guest: v.guest, guestMode: v.guestMode, superadmin: isSuperadmin(v.realRole) }}>
+      {children}
+    </AppShell>
+  );
 }

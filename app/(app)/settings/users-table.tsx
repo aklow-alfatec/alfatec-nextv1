@@ -2,6 +2,7 @@
 
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
+import { ROLES } from '@/lib/access';
 import type { UserRow } from '@/lib/assets';
 import { removeUserAction, setRoleAction } from './actions';
 
@@ -30,7 +31,7 @@ export function UsersTable({ users, me }: { users: UserRow[]; me: string | null 
               <td className="py-1 text-fg-2">{u.email}{u.email === me && <span className="ml-1 text-[10px] text-fg-3">(you)</span>}</td>
               <td className="py-1">
                 <select className={cell} value={u.role ?? 'viewer'} onChange={(e) => run(setRoleAction(u.email, e.target.value))}>
-                  {['viewer', 'admin', 'superadmin'].map((r) => <option key={r}>{r}</option>)}
+                  {ROLES.map((r) => <option key={r}>{r}</option>)}
                 </select>
               </td>
               <td className="py-1 text-right">

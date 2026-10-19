@@ -4,6 +4,8 @@ import { Button, Card, GradeChip, PartScoreChip, ReadingTag } from '@/components
 import { fridays, lastFinalFriday } from '@/lib/grades';
 import { activePipelineFor, assetInfo, components, graphForPipeline, prices, runsForSymbol, weeklyPayloads } from '@/lib/symbols';
 import { SymbolChart } from './symbol-chart';
+import { maskedName } from '@/lib/access';
+import { currentViewer } from '@/lib/viewer';
 
 export const dynamic = 'force-dynamic';
 
@@ -25,17 +27,19 @@ export default async function SymbolPage({ params, searchParams }: { params: Pro
   const heatWeeks = fridays(end, 54);
   const priceStart = range === 'all' ? '1900-01-01' : weeks[0];
 
+  // guest view: no grade breakdown, runs, Studio links or data sources; part names masked as Indicator n
+  const guest = (await currentViewer())?.guest ?? true;
   const [asset, pipe, px, weekly, heat, runs, year] = await Promise.all([
     assetInfo(symbol),
     activePipelineFor(symbol),
     prices(symbol, priceStart),
     weeklyPayloads(symbol, weeks),
     weeklyPayloads(symbol, heatWeeks),
-    runsForSymbol(symbol),
+    guest ? Promise.resolve([] as Awaited<ReturnType<typeof runsForSymbol>>) : runsForSymbol(symbol),
     prices(symbol, fridays(end, 52)[0]),
   ]);
   if (!asset && !pipe && px.length === 0) notFound();
-  const graph = pipe ? await graphForPipeline(pipe.name) : null;
+  const graph = pipe && !guest ? await graphForPipeline(pipe.name) : null;
   const parts = pipe ? components(pipe.nodes) : [];
 
   const cur = heat[end];
@@ -63,8 +67,8 @@ export default async function SymbolPage({ params, searchParams }: { params: Pro
           <h1 className="text-2xl font-semibold">{symbol}</h1>
           <p className="text-sm text-fg-2">
             {asset?.name ?? symbol}
-            {asset?.pull_method && <> · daily from {asset.pull_method}</>}
-            {pipe && <> · graph {pipe.name}</>}
+            {!guest && asset?.pull_method && <> · daily from {asset.pull_method}</>}
+            {!guest && pipe && <> · graph {pipe.name}</>}
           </p>
           {last && (
             <p className="num mt-1 text-sm">
@@ -104,7 +108,7 @@ export default async function SymbolPage({ params, searchParams }: { params: Pro
         <SymbolChart prices={px} weekly={weeks.map((w) => ({ date: w, grade: weekly[w]?.grade ?? null, reading: weekly[w]?.reading ?? null }))} />
       </Card>
 
-      {pipe && (
+      {pipe && !guest && (
         <div className="grid gap-4 lg:grid-cols-3">
           <Card title={`What makes up the grade${cur?.points != null && cur?.max != null ? ` · ${cur.points} / ${cur.max}` : ''}`} className="lg:col-span-2">
             <table className="w-full text-sm">
@@ -170,9 +174,14 @@ export default async function SymbolPage({ params, searchParams }: { params: Pro
                 </tr>
               </thead>
               <tbody>
-                {[...parts.map((c) => c.node), '__TOTAL__'].map((k) => (
-                  <tr key={k}>
-                    <td className="sticky left-0 whitespace-nowrap bg-surface pr-2 text-xs">{k === '__TOTAL__' ? 'Grade' : k.replace(/_GRADE$/, '')}</td>
+                {[
+                  // guest view: rows keyed and labelled Indicator n, so the real node names never reach the browser
+                  // (React keys travel in the page payload); the node itself is only used here on the server
+                  ...parts.map((c, i) => ({ key: guest ? `p${i}` : c.node, label: guest ? maskedName(i) : c.node.replace(/_GRADE$/, ''), node: c.node })),
+                  { key: '__TOTAL__', label: 'Grade', node: '__TOTAL__' },
+                ].map(({ key, label, node: k }) => (
+                  <tr key={key}>
+                    <td className="sticky left-0 whitespace-nowrap bg-surface pr-2 text-xs">{label}</td>
                     {heatWeeks.map((w) => {
                       const p = heat[w];
                       const g = k === '__TOTAL__' ? p?.grade ?? null : nodeGrade(p?.nodes, k);

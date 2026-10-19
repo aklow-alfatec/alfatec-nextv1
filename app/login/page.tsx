@@ -1,9 +1,9 @@
 import { redirect } from 'next/navigation';
-import { auth } from '@/auth';
+import { sessionUser } from '@/lib/session-user';
 import { LoginForm } from './login-form';
 
 export default async function LoginPage() {
-  if ((await auth())?.user) redirect('/');
+  if (await sessionUser()) redirect('/');
   return (
     <div className="grid min-h-screen place-items-center p-4">
       <LoginForm />
