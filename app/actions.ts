@@ -7,7 +7,7 @@ import { sessionUser } from '@/lib/session-user';
 
 export async function signOutAction() {
   (await cookies()).delete(GUEST_MODE_COOKIE);
-  await signOut({ redirectTo: '/login' });
+  await signOut({ redirectTo: '/' });
 }
 
 /** Superadmin preview of the guest view (lib/access.ts). Turning it on needs the account's current role to be
