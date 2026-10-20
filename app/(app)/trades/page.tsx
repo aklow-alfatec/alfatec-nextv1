@@ -13,7 +13,7 @@ const money = (v: number) => `${v < 0 ? '−' : v > 0 ? '+' : ''}${Math.abs(v).t
 const gbp = (v: number) => `${v < 0 ? '−' : v > 0 ? '+' : ''}£${Math.abs(v).toLocaleString(undefined, { maximumFractionDigits: 0 })}`;
 const num = (v: number | null) => (v === null ? '-' : v.toLocaleString(undefined, { maximumFractionDigits: Math.abs(v) < 100 ? 2 : 0 }));
 const pct = (v: number | null) => (v === null || !Number.isFinite(v) ? '-' : `${v > 0 ? '+' : ''}${(v * 100).toFixed(1)}%`);
-const SORTS = { opened: 'Opened', closed: 'Closed', symbol: 'Symbol', pnl: 'Realised', ret: 'Return' } as const;
+const SORTS = { opened: 'Opened', closed: 'Closed', symbol: 'Assets', pnl: 'Realised', ret: 'Return' } as const;
 type Sort = keyof typeof SORTS;
 
 function lastClose(t: TradeView) {
@@ -128,7 +128,7 @@ export default async function TradesPage({ searchParams }: { searchParams: Promi
             <table className="w-full text-sm">
               <thead className="text-xs text-fg-3">
                 <tr>
-                  {th('symbol', 'Symbol')}
+                  {th('symbol', 'Assets')}
                   <th className="py-1 text-left font-medium">Side</th>
                   {!guest && <th className="py-1 text-left font-medium">By</th>}
                   {th('opened', 'Opened')}

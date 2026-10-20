@@ -1,6 +1,6 @@
 'use client';
 import Link from 'next/link';
-import { useState, useTransition } from 'react';
+import { useEffect, useRef, useState, useTransition } from 'react';
 import { Button, GradeChip, PartScoreChip, ReadingTag } from '@/components/ui';
 import type { RiskRewardRow } from '@/lib/risk-reward';
 import { groupBySection, type SectionKey } from '@/lib/sections';
@@ -27,6 +27,13 @@ const fmtSaved = (iso: string) =>
 const HEAD = 'h-6';
 const SECTION = 'h-8';
 const ROW = 'h-7';
+
+/** The split between the grades and the details: % of the width the grades may take. Default 2/3 on narrow screens,
+ *  3/4 on wide ones; dragged positions are kept per browser. */
+const SPLIT_KEY = 'alfatec.grades.split';
+const SPLIT_MIN = 25;
+const SPLIT_MAX = 90;
+const defaultSplit = () => (typeof window !== 'undefined' && window.matchMedia('(min-width: 768px)').matches ? 75 : 100 * (2 / 3));
 const fmtNum = (v: number | null) =>
   v === null ? '-' : v.toLocaleString(undefined, { maximumFractionDigits: Math.abs(v) < 1 ? 5 : Math.abs(v) < 100 ? 3 : 1 });
 
@@ -37,6 +44,31 @@ export function GradesTable({ rows, weeks }: { rows: GradeRow[]; weeks: string[]
   const [details, setDetails] = useState<DayDetails | null>(null);
   const [error, setError] = useState('');
   const [pending, start] = useTransition();
+  const box = useRef<HTMLDivElement>(null);
+  const [split, setSplit] = useState(100 * (2 / 3));
+  const [dragging, setDragging] = useState(false);
+  useEffect(() => {
+    let saved = NaN;
+    try {
+      saved = Number(localStorage.getItem(SPLIT_KEY));
+    } catch {
+      /* storage blocked: use the default */
+    }
+    setSplit(Number.isFinite(saved) && saved >= SPLIT_MIN && saved <= SPLIT_MAX ? saved : defaultSplit());
+  }, []);
+  const dragTo = (clientX: number) => {
+    const r = box.current?.getBoundingClientRect();
+    if (!r || r.width <= 0) return;
+    setSplit(Math.min(SPLIT_MAX, Math.max(SPLIT_MIN, ((clientX - r.left) / r.width) * 100)));
+  };
+  const endDrag = () => {
+    setDragging(false);
+    try {
+      localStorage.setItem(SPLIT_KEY, String(Math.round(split * 10) / 10));
+    } catch {
+      /* storage blocked: the position just isn't kept */
+    }
+  };
   const wide = weeks.length > 12;
   const sections = groupBySection(rows);
   const leftCols = weeks.length + 3;
@@ -60,12 +92,12 @@ export function GradesTable({ rows, weeks }: { rows: GradeRow[]; weeks: string[]
     <>
       {/* two tables with matching row heights: the grades on the left, the risk / reward details on the right, which
           scroll sideways on their own */}
-      <div className="flex items-start">
-        <div className="max-w-[85%] shrink-0 overflow-x-auto md:max-w-[75%]">
+      <div ref={box} className={`flex items-stretch ${dragging ? 'select-none' : ''}`}>
+        <div className="shrink-0 overflow-x-auto" style={{ maxWidth: `${split}%` }}>
           <table className="border-separate border-spacing-1 text-xs">
             <thead>
               <tr className={`${HEAD} text-fg-3`}>
-                <th className="sticky left-0 z-10 bg-surface pr-2 text-left font-medium">Asset</th>
+                <th className="sticky left-0 z-10 bg-surface pr-2 text-left font-medium">Assets</th>
                 {weeks.map((w, i) => (
                   <th key={w} className="num min-w-10 font-normal" title={w}>
                     {wide ? (i === 0 || yearOf(w) !== yearOf(weeks[i - 1]) ? yearOf(w) : '') : short(w)}
@@ -78,8 +110,11 @@ export function GradesTable({ rows, weeks }: { rows: GradeRow[]; weeks: string[]
             {sections.map((s) => (
               <tbody key={s.key}>
                 <tr className={SECTION}>
-                  <td colSpan={leftCols} className={`sticky left-0 align-bottom text-[11px] font-semibold uppercase tracking-wider ${s.key === 'other' ? 'text-fg-2' : 'text-[#EA7A12]'}`}>
-                    {s.label} <span className="num ml-1 font-normal text-fg-3">{s.items.length}</span>
+                  <td colSpan={leftCols} className={`align-bottom text-[11px] font-semibold uppercase tracking-wider ${s.key === 'other' ? 'text-fg-2' : 'text-[#EA7A12]'}`}>
+                    {/* the title stays at the left while the weeks scroll under it */}
+                    <span className="sticky left-0 z-10 inline-block bg-surface pr-2">
+                      {s.label} <span className="num ml-1 font-normal text-fg-3">{s.items.length}</span>
+                    </span>
                   </td>
                 </tr>
                 {s.items.map((r) => (
@@ -112,6 +147,33 @@ export function GradesTable({ rows, weeks }: { rows: GradeRow[]; weeks: string[]
               </tbody>
             ))}
           </table>
+        </div>
+        {/* drag (touch or mouse) to move the split; double-click / double-tap puts it back to the default */}
+        <div
+          role="separator"
+          aria-orientation="vertical"
+          aria-valuenow={Math.round(split)}
+          aria-valuemin={SPLIT_MIN}
+          aria-valuemax={SPLIT_MAX}
+          title="Drag to resize"
+          className={`group flex w-3 shrink-0 cursor-col-resize touch-none items-center justify-center ${dragging ? 'bg-accent/10' : 'hover:bg-raised'}`}
+          onPointerDown={(e) => {
+            e.currentTarget.setPointerCapture(e.pointerId);
+            setDragging(true);
+          }}
+          onPointerMove={(e) => dragging && dragTo(e.clientX)}
+          onPointerUp={endDrag}
+          onPointerCancel={endDrag}
+          onDoubleClick={() => {
+            setSplit(defaultSplit());
+            try {
+              localStorage.removeItem(SPLIT_KEY);
+            } catch {
+              /* nothing kept */
+            }
+          }}
+        >
+          <span className={`h-10 w-1 rounded-full ${dragging ? 'bg-accent' : 'bg-line-2 group-hover:bg-fg-3'}`} />
         </div>
         <div className="min-w-0 flex-1 overflow-x-auto border-l border-line">
           <table className="border-separate border-spacing-1 text-xs">

@@ -138,7 +138,7 @@ export default async function OverviewPage({ searchParams }: { searchParams: Pro
             </colgroup>
             <thead className="text-xs text-fg-3">
               <tr>
-                <th className="py-1 text-left font-medium">Symbol</th>
+                <th className="py-1 text-left font-medium">Assets</th>
                 <th className="py-1 text-left font-medium">Grade</th>
                 <th className="py-1 text-left font-medium">Reading</th>
                 <th className="hidden py-1 text-left font-medium md:table-cell">12 weeks</th>
@@ -150,7 +150,8 @@ export default async function OverviewPage({ searchParams }: { searchParams: Pro
                 <tr key={r.symbol} className="border-t border-line hover:bg-raised">
                   <td className="py-1.5">
                     <Link href={`/symbols/${encodeURIComponent(r.symbol)}`} className="font-semibold hover:text-accent">{r.title}</Link>
-                    {displayTags(r.tags).length > 0 && <span className="ml-1 text-[10px] text-fg-3">{displayTags(r.tags).join(', ')}</span>}
+                    {/* narrow screens: the tags go on a second line under the asset */}
+                    {displayTags(r.tags).length > 0 && <span className="block text-[10px] leading-tight text-fg-3 md:ml-1 md:inline">{displayTags(r.tags).join(', ')}</span>}
                   </td>
                   <td className="py-1.5"><GradeChip grade={r.grade} /></td>
                   <td className="py-1.5 text-xs text-fg-2">
