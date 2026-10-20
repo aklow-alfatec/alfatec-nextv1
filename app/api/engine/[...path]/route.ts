@@ -1,6 +1,7 @@
 import { auth } from '@/auth';
 import { engineTarget, resetEngineTarget } from '@/lib/engine-base';
 import { currentViewer } from '@/lib/viewer';
+import { queuesJob, startWorker } from '@/lib/worker-dispatch';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
@@ -42,9 +43,15 @@ async function forward(req: Request, ctx: { params: Promise<{ path: string[] }> 
     return Response.json({ detail: `Engine API (${engine.source}) unreachable: ${(e as Error).message}` }, { status: 502 });
   }
   if (upstream.status === 204) return new Response(null, { status: 204, headers: { 'X-Engine-Source': engine.source } });
+  const extra: Record<string, string> = {};
+  // a job was queued on the cloud engine: start the GitHub worker now (the local backend has its own worker)
+  if (upstream.ok && engine.source !== 'local' && queuesJob(req.method, path)) {
+    const w = await startWorker();
+    extra['X-Worker-Start'] = w.started ? 'started' : `not started: ${w.detail}`.slice(0, 200);
+  }
   return new Response(await upstream.text(), {
     status: upstream.status,
-    headers: { 'Content-Type': upstream.headers.get('content-type') ?? 'application/json', 'X-Engine-Source': engine.source },
+    headers: { 'Content-Type': upstream.headers.get('content-type') ?? 'application/json', 'X-Engine-Source': engine.source, ...extra },
   });
 }
 
