@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState, type ReactNode } from 'react';
 import { Badge, Button, Card, Table, TBody, TD, TH, THead, TR } from '@/components/ui';
 import { setBacktestAction } from '@/app/(app)/studio/runs/actions';
 import { engineApi, type RunRow } from './api';
+import { stats } from './run-stats';
 
 /** Same value as lib/studio-db.ts BACKTEST_TAG (that module is server-only). */
 export const BACKTEST_TAG = 'ViewInBacktest';
@@ -11,7 +12,7 @@ export const BACKTEST_TAG = 'ViewInBacktest';
 const pct = (v: unknown, d = 1) => (typeof v === 'number' && Number.isFinite(v) ? `${(v * 100).toFixed(d)}%` : '-');
 const num = (v: unknown) => (typeof v === 'number' && Number.isFinite(v) ? v.toFixed(2) : '-');
 
-type SortKey = 'started' | 'graph' | 'period' | 'status' | 'total_return' | 'cagr' | 'bh_cagr' | 'max_drawdown' | 'sharpe';
+type SortKey = 'started' | 'graph' | 'period' | 'status' | 'total_return' | 'cagr' | 'bh_cagr' | 'max_drawdown' | 'sharpe' | 'backtest';
 const finite = (v: unknown) => (typeof v === 'number' && Number.isFinite(v) ? v : null);
 
 /** The value a column sorts on; numbers without a value (failed or unfinished runs) go last either way. */
@@ -27,9 +28,14 @@ function sortValue(r: RunRow, k: SortKey, graphNames: Record<string, string>): s
     case 'period': return `${r.start_date ?? ''} ${r.end_date ?? ''}`;
     case 'status': return r.status;
     case 'bh_cagr': return finite(b.cagr);
+    case 'backtest': return (r.tags ?? []).includes(BACKTEST_TAG) ? 1 : 0;
     default: return finite(s[k]);
   }
 }
+
+/** Statistics shown above the result columns while a search is active (finished runs only). */
+const STAT_ROWS = [['average', 'Average'], ['max', 'Max'], ['min', 'Min'], ['median', 'Median']] as const;
+const statPct = (v: number | null, d: number) => (v === null ? '–' : `${(v * 100).toFixed(d)}%`);
 
 function StatusBadge({ status }: { status: RunRow['status'] }) {
   const tone = status === 'done' ? 'positive' : status === 'failed' ? 'negative' : status === 'running' || status === 'queued' ? 'info' : undefined;
@@ -52,6 +58,14 @@ export function RunsTable({ rows, graphNames, canTag, linkRuns, onlyTagged, runH
   const [error, setError] = useState('');
   const tagsOf = (r: RunRow) => tags[r.id] ?? r.tags ?? [];
   const [sort, setSort] = useState<{ key: SortKey; dir: 'asc' | 'desc' }>({ key: 'started', dir: 'desc' });
+  const [query, setQuery] = useState('');
+  // every word must appear in the graph name or a tag (the run name is its name: tag), ignoring case
+  const words = query.toLowerCase().split(/\s+/).filter(Boolean);
+  const matches = (r: RunRow) => {
+    if (!words.length) return true;
+    const hay = [graphNames[r.graph_id] ?? r.graph_id, ...tagsOf(r).map((t) => (t.startsWith('name:') ? t.slice(5) : t))].join(' ').toLowerCase();
+    return words.every((w) => hay.includes(w));
+  };
   const sortBy = (key: SortKey) =>
     // a new column starts high to low for numbers and dates, A to Z for names
     setSort((cur) => (cur.key === key ? { key, dir: cur.dir === 'asc' ? 'desc' : 'asc' } : { key, dir: key === 'graph' || key === 'status' || key === 'period' ? 'asc' : 'desc' }));
@@ -73,6 +87,7 @@ export function RunsTable({ rows, graphNames, canTag, linkRuns, onlyTagged, runH
   };
 
   const shown = (onlyTagged ? rows.filter((r) => tagsOf(r).includes(BACKTEST_TAG)) : rows)
+    .filter(matches)
     .map((r) => ({ r, v: sortValue(r, sort.key, graphNames) }))
     .sort((a, b) => {
       if (a.v === null || b.v === null) return a.v === null ? (b.v === null ? 0 : 1) : -1;
@@ -80,11 +95,43 @@ export function RunsTable({ rows, graphNames, canTag, linkRuns, onlyTagged, runH
       return sort.dir === 'asc' ? c : -c;
     })
     .map((x) => x.r);
+  // statistics of the runs the search matches, per result column
+  const finished = shown.filter((r) => r.status === 'done');
+  const col = (key: string) => stats(finished.map((r) => (r.summary as Record<string, unknown> | null)?.[key] as number | null), 0.0001);
+  const colStats = words.length && finished.length
+    ? { total_return: col('total_return'), cagr: col('cagr'), max_drawdown: col('max_drawdown'), sharpe: col('sharpe') }
+    : null;
+
   return (
     <>
       {error && <p className="mb-3 text-sm text-negative">{error}</p>}
+      <div className="mb-2 flex items-center gap-2">
+        <input
+          type="search"
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          placeholder="Search name or tag, e.g. SET2-1"
+          className="w-full max-w-xs rounded-control border border-line-2 bg-bg px-2 py-1 text-sm text-fg"
+          aria-label="Search runs by graph name, run name or tag"
+        />
+        {words.length > 0 && <span className="text-xs text-fg-3">{shown.length} of {rows.length}</span>}
+      </div>
       <Table>
         <THead>
+          {colStats && STAT_ROWS.map(([k, label], i) => (
+            <tr key={k} className={`text-xs ${i === 0 ? 'border-t border-line' : ''} bg-raised/40`}>
+              <th colSpan={4} className="px-3 py-0.5 text-right font-medium text-fg-3">
+                {i === 0 && <span className="float-left font-normal">{finished.length} finished run{finished.length === 1 ? '' : 's'}</span>}
+                {label}
+              </th>
+              <th className="num px-3 py-0.5 text-right font-normal text-fg">{statPct(colStats.total_return[k], 1)}</th>
+              <th className="num px-3 py-0.5 text-right font-normal text-fg">{statPct(colStats.cagr[k], 2)}</th>
+              <th />
+              <th className="num px-3 py-0.5 text-right font-normal text-fg">{statPct(colStats.max_drawdown[k], 1)}</th>
+              <th className="num px-3 py-0.5 text-right font-normal text-fg">{colStats.sharpe[k] === null ? '–' : colStats.sharpe[k]!.toFixed(2)}</th>
+              {canTag && <th />}
+            </tr>
+          ))}
           <TR>
             {head('started', 'Started')}
             {head('graph', 'Graph')}
@@ -95,7 +142,7 @@ export function RunsTable({ rows, graphNames, canTag, linkRuns, onlyTagged, runH
             {head('bh_cagr', 'Buy and hold CAGR', 'text-right')}
             {head('max_drawdown', 'Max drawdown', 'text-right')}
             {head('sharpe', 'Sharpe', 'text-right')}
-            {canTag && <TH className="text-center" title="Show this run on the Backtest page">Backtest</TH>}
+            {canTag && head('backtest', 'Backtest', 'text-center')}
           </TR>
         </THead>
         <TBody>

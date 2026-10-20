@@ -156,16 +156,38 @@ export function MetricsTable({ report }: { report: StrategyReport }) {
   );
 }
 
+const TRADE_COLS: [keyof TradeRow, string][] = [
+  ['entry', 'Entry'], ['exit', 'Exit'], ['side', 'Side'], ['entry_price', 'Entry price'], ['exit_price', 'Exit price'],
+  ['return', 'Return'], ['pnl', 'P&L'], ['bars', 'Bars'], ['reason', 'Reason'],
+];
+
+/** Trades of a strategy; a column header sorts by it (again: the other way). Default: latest entry first. */
 export function TradesTable({ trades, limit = 200 }: { trades: TradeRow[]; limit?: number }) {
+  const [sort, setSort] = useState<{ key: keyof TradeRow; dir: 'asc' | 'desc' }>({ key: 'entry', dir: 'desc' });
+  const shown = useMemo(() => {
+    const val = (t: TradeRow) => t[sort.key] as string | number | null | undefined;
+    return trades.slice(-limit).sort((a, b) => {
+      const x = val(a);
+      const y = val(b);
+      if (x === null || x === undefined || y === null || y === undefined) return x === y ? 0 : x === null || x === undefined ? 1 : -1;
+      const c = x < y ? -1 : x > y ? 1 : 0;
+      return sort.dir === 'asc' ? c : -c;
+    });
+  }, [trades, limit, sort]);
   if (!trades.length) return <p className="text-xs text-fg-3">No closed trades in this period.</p>;
-  const shown = trades.slice(-limit).reverse();
+  const by = (key: keyof TradeRow) =>
+    setSort((cur) => (cur.key === key ? { key, dir: cur.dir === 'asc' ? 'desc' : 'asc' } : { key, dir: key === 'side' || key === 'reason' ? 'asc' : 'desc' }));
   return (
     <div className="max-h-72 overflow-auto">
       <table className="w-full text-xs">
         <thead className="sticky top-0 bg-surface">
           <tr className="text-fg-3">
-            {['Entry', 'Exit', 'Side', 'Entry price', 'Exit price', 'Return', 'P&L', 'Bars', 'Reason'].map((h) => (
-              <th key={h} className="px-1 py-1 text-right font-medium first:text-left">{h}</th>
+            {TRADE_COLS.map(([k, h]) => (
+              <th key={k} className="px-1 py-1 text-right font-medium first:text-left" aria-sort={sort.key === k ? (sort.dir === 'asc' ? 'ascending' : 'descending') : 'none'}>
+                <button type="button" onClick={() => by(k)} className="whitespace-nowrap hover:text-fg">
+                  {h}{sort.key === k ? (sort.dir === 'desc' ? ' ↓' : ' ↑') : ''}
+                </button>
+              </th>
             ))}
           </tr>
         </thead>
