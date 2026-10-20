@@ -48,7 +48,7 @@ export function Sidebar({
           {navFor(access.guest).map((g, i) => (
             <div key={i} className="mt-4 first:mt-0">
               {g.title && (
-                <div className="px-2 pb-1 text-[11px] font-medium uppercase tracking-wider text-fg-3">{g.title}</div>
+                <div className="px-2 pb-1 text-[11px] font-semibold uppercase tracking-wider text-[#EA7A12]">{g.title}</div>
               )}
               {g.items.map((it) => (
                 <Link

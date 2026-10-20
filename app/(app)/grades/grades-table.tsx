@@ -20,6 +20,13 @@ const short = (d: string) => new Date(`${d}T00:00:00Z`).toLocaleDateString('en-G
 const fmtDay = (d: string) => new Date(`${d}T00:00:00Z`).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'UTC' });
 const yearOf = (d: string) => d.slice(0, 4);
 const BIAS_COLOR: Record<string, string> = { LONG: '#2F8FD8', SHORT: '#E0245E' };
+/** When a risk / reward note was last saved, in the viewer's time zone: "20 Oct 2026, 11:16". */
+const fmtSaved = (iso: string) =>
+  new Date(iso).toLocaleString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+// the same row heights in both tables keep their rows lined up
+const HEAD = 'h-6';
+const SECTION = 'h-8';
+const ROW = 'h-7';
 const fmtNum = (v: number | null) =>
   v === null ? '-' : v.toLocaleString(undefined, { maximumFractionDigits: Math.abs(v) < 1 ? 5 : Math.abs(v) < 100 ? 3 : 1 });
 
@@ -32,7 +39,7 @@ export function GradesTable({ rows, weeks }: { rows: GradeRow[]; weeks: string[]
   const [pending, start] = useTransition();
   const wide = weeks.length > 12;
   const sections = groupBySection(rows);
-  const cols = weeks.length + 8;
+  const leftCols = weeks.length + 3;
 
   const show = (symbol: string, date: string) => {
     setOpen({ symbol, date });
@@ -51,67 +58,92 @@ export function GradesTable({ rows, weeks }: { rows: GradeRow[]; weeks: string[]
 
   return (
     <>
-      <div className="overflow-x-auto">
-        <table className="border-separate border-spacing-1 text-xs">
-          <thead>
-            <tr className="text-fg-3">
-              <th className="sticky left-0 z-10 bg-surface pr-2 text-left font-medium">Symbol</th>
-              {weeks.map((w, i) => (
-                <th key={w} className="num min-w-10 font-normal" title={w}>
-                  {wide ? (i === 0 || yearOf(w) !== yearOf(weeks[i - 1]) ? yearOf(w) : '') : short(w)}
-                </th>
-              ))}
-              <th className="num pl-2 text-right font-medium">Δ</th>
-              <th className="pl-3 text-left font-medium">Grades</th>
-              <th className="pl-3 text-left font-medium">Position bias</th>
-              <th className="pl-3 text-right font-medium">Potential risk</th>
-              <th className="pl-3 text-right font-medium">Potential reward</th>
-              <th className="pl-3 text-right font-medium">Risk / reward</th>
-              <th className="pl-3 text-right font-medium">Est. duration</th>
-            </tr>
-          </thead>
-          {sections.map((s) => (
-            <tbody key={s.key}>
-              <tr>
-                <td colSpan={cols} className="sticky left-0 pt-3 text-[11px] font-semibold uppercase tracking-wider text-fg-2">
-                  {s.label} <span className="num ml-1 font-normal text-fg-3">{s.items.length}</span>
-                </td>
+      {/* two tables with matching row heights: the grades on the left, the risk / reward details on the right, which
+          scroll sideways on their own */}
+      <div className="flex items-start">
+        <div className="max-w-[85%] shrink-0 overflow-x-auto md:max-w-[75%]">
+          <table className="border-separate border-spacing-1 text-xs">
+            <thead>
+              <tr className={`${HEAD} text-fg-3`}>
+                <th className="sticky left-0 z-10 bg-surface pr-2 text-left font-medium">Asset</th>
+                {weeks.map((w, i) => (
+                  <th key={w} className="num min-w-10 font-normal" title={w}>
+                    {wide ? (i === 0 || yearOf(w) !== yearOf(weeks[i - 1]) ? yearOf(w) : '') : short(w)}
+                  </th>
+                ))}
+                <th className="num pl-2 text-right font-medium">Δ</th>
+                <th className="pl-3 text-left font-medium">Grades</th>
               </tr>
-              {s.items.map((r) => (
-                <tr key={r.symbol}>
-                  <td className="sticky left-0 z-10 bg-surface pr-2">
-                    <Link href={`/symbols/${encodeURIComponent(r.symbol)}`} className="font-semibold hover:text-accent">{r.title}</Link>
+            </thead>
+            {sections.map((s) => (
+              <tbody key={s.key}>
+                <tr className={SECTION}>
+                  <td colSpan={leftCols} className={`sticky left-0 align-bottom text-[11px] font-semibold uppercase tracking-wider ${s.key === 'other' ? 'text-fg-2' : 'text-[#EA7A12]'}`}>
+                    {s.label} <span className="num ml-1 font-normal text-fg-3">{s.items.length}</span>
                   </td>
-                  {r.grades.map((g, i) => (
-                    <td key={weeks[i]} className={wide ? 'p-0' : 'text-center'}>
-                      {g === null ? (
-                        <GradeChip grade={null} className={wide ? 'h-6 min-w-0 w-2 px-0 text-[0px]' : undefined} />
-                      ) : (
-                        <button
-                          type="button"
-                          onClick={() => show(r.symbol, weeks[i])}
-                          className="rounded-chip transition-opacity hover:opacity-80"
-                          title={`${r.title} ${weeks[i]}: grade ${g.toFixed(0)}. Click for the breakdown.`}
-                        >
-                          <GradeChip grade={g} className={wide ? 'h-6 min-w-0 w-2 px-0 text-[0px]' : undefined} />
-                        </button>
-                      )}
-                    </td>
-                  ))}
-                  <td className={`num pl-2 text-right ${r.delta ? (r.delta > 0 ? 'text-positive' : 'text-negative') : 'text-fg-3'}`}>
-                    {r.delta === null ? '-' : r.delta > 0 ? `+${r.delta}` : r.delta}
-                  </td>
-                  <td className="whitespace-nowrap pl-3"><ReadingTag reading={r.readingValue} className="w-40 justify-center" /></td>
-                  <td className="pl-3 font-bold" style={{ color: BIAS_COLOR[r.rr?.potential_bias ?? ''] }}>{r.rr?.potential_bias ?? '-'}</td>
-                  <td className="num pl-3 text-right">{r.rr ? `${r.rr.potential_risk}%` : '-'}</td>
-                  <td className="num pl-3 text-right">{r.rr ? `${r.rr.potential_reward}%` : '-'}</td>
-                  <td className="num pl-3 text-right">{r.rr?.potential_risk_reward_ratio ?? '-'}</td>
-                  <td className="num whitespace-nowrap pl-3 text-right">{r.rr ? `${r.rr.estimated_position_duration} months` : '-'}</td>
                 </tr>
-              ))}
-            </tbody>
-          ))}
-        </table>
+                {s.items.map((r) => (
+                  <tr key={r.symbol} className={ROW}>
+                    <td className="sticky left-0 z-10 bg-surface pr-2">
+                      <Link href={`/symbols/${encodeURIComponent(r.symbol)}`} className="whitespace-nowrap font-semibold hover:text-accent">{r.title}</Link>
+                    </td>
+                    {r.grades.map((g, i) => (
+                      <td key={weeks[i]} className={wide ? 'p-0' : 'text-center'}>
+                        {g === null ? (
+                          <GradeChip grade={null} className={wide ? 'h-6 min-w-0 w-2 px-0 text-[0px]' : undefined} />
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => show(r.symbol, weeks[i])}
+                            className="rounded-chip transition-opacity hover:opacity-80"
+                            title={`${r.title} ${weeks[i]}: grade ${g.toFixed(0)}. Click for the breakdown.`}
+                          >
+                            <GradeChip grade={g} className={wide ? 'h-6 min-w-0 w-2 px-0 text-[0px]' : undefined} />
+                          </button>
+                        )}
+                      </td>
+                    ))}
+                    <td className={`num pl-2 text-right ${r.delta ? (r.delta > 0 ? 'text-positive' : 'text-negative') : 'text-fg-3'}`}>
+                      {r.delta === null ? '-' : r.delta > 0 ? `+${r.delta}` : r.delta}
+                    </td>
+                    <td className="whitespace-nowrap pl-3"><ReadingTag reading={r.readingValue} className="w-40 justify-center" /></td>
+                  </tr>
+                ))}
+              </tbody>
+            ))}
+          </table>
+        </div>
+        <div className="min-w-0 flex-1 overflow-x-auto border-l border-line">
+          <table className="border-separate border-spacing-1 text-xs">
+            <thead>
+              <tr className={`${HEAD} whitespace-nowrap text-fg-3`}>
+                <th className="pl-3 text-left font-medium">Position bias</th>
+                <th className="pl-3 text-right font-medium">Potential risk</th>
+                <th className="pl-3 text-right font-medium">Potential reward</th>
+                <th className="pl-3 text-right font-medium">Risk / reward</th>
+                <th className="pl-3 text-right font-medium">Est. duration</th>
+                <th className="pl-3 text-right font-medium">Last updated</th>
+              </tr>
+            </thead>
+            {sections.map((s) => (
+              <tbody key={s.key}>
+                <tr className={SECTION}><td colSpan={6} /></tr>
+                {s.items.map((r) => (
+                  <tr key={r.symbol} className={`${ROW} whitespace-nowrap`}>
+                    <td className="pl-3 font-bold" style={{ color: BIAS_COLOR[r.rr?.potential_bias ?? ''] }}>{r.rr?.potential_bias ?? '-'}</td>
+                    <td className="num pl-3 text-right">{r.rr ? `${r.rr.potential_risk}%` : '-'}</td>
+                    <td className="num pl-3 text-right">{r.rr ? `${r.rr.potential_reward}%` : '-'}</td>
+                    <td className="num pl-3 text-right">{r.rr?.potential_risk_reward_ratio ?? '-'}</td>
+                    <td className="num pl-3 text-right">{r.rr ? `${r.rr.estimated_position_duration} months` : '-'}</td>
+                    <td className="num pl-3 text-right text-fg-2" title={r.rr?.edited_at ?? undefined} suppressHydrationWarning>
+                      {r.rr?.edited_at ? fmtSaved(r.rr.edited_at) : '-'}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            ))}
+          </table>
+        </div>
       </div>
 
       {open && (

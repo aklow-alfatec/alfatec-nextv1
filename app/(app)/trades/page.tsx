@@ -3,11 +3,14 @@ import { Button, Card, GradeChip, ReadingTag } from '@/components/ui';
 import { activePipelines, lastFinalFriday, latestGrades } from '@/lib/grades';
 import { latestRiskReward } from '@/lib/risk-reward';
 import { listTrades, tradeStats, type TradeView } from '@/lib/trades';
+import { currentViewer } from '@/lib/viewer';
 import { RiskRewardEditor } from './risk-reward-editor';
 
 export const dynamic = 'force-dynamic';
 
 const money = (v: number) => `${v < 0 ? '−' : v > 0 ? '+' : ''}${Math.abs(v).toLocaleString(undefined, { maximumFractionDigits: 0 })}`;
+/** Pounds with a sign: +£1,234 / −£56. */
+const gbp = (v: number) => `${v < 0 ? '−' : v > 0 ? '+' : ''}£${Math.abs(v).toLocaleString(undefined, { maximumFractionDigits: 0 })}`;
 const num = (v: number | null) => (v === null ? '-' : v.toLocaleString(undefined, { maximumFractionDigits: Math.abs(v) < 100 ? 2 : 0 }));
 const pct = (v: number | null) => (v === null || !Number.isFinite(v) ? '-' : `${v > 0 ? '+' : ''}${(v * 100).toFixed(1)}%`);
 const SORTS = { opened: 'Opened', closed: 'Closed', symbol: 'Symbol', pnl: 'Realised', ret: 'Return' } as const;
@@ -22,7 +25,9 @@ function ret(t: TradeView) {
 
 export default async function TradesPage({ searchParams }: { searchParams: Promise<{ view?: string; status?: string; sort?: string; dir?: string }> }) {
   const sp = await searchParams;
-  const view = sp.view === 'risk' ? 'risk' : 'trades';
+  // guests: read-only, no new trades, no risk / reward editor, no names of who placed a trade
+  const guest = (await currentViewer())?.guest ?? true;
+  const view = sp.view === 'risk' && !guest ? 'risk' : 'trades';
   const status = sp.status === 'open' || sp.status === 'closed' ? sp.status : 'all';
   const sort: Sort = (sp.sort && sp.sort in SORTS ? sp.sort : 'opened') as Sort;
   const dir = sp.dir === 'asc' ? 'asc' : 'desc';
@@ -32,11 +37,13 @@ export default async function TradesPage({ searchParams }: { searchParams: Promi
   const header = (
     <div className="flex flex-wrap items-center gap-3">
       <h1 className="text-xl font-semibold">Trades</h1>
-      <div className="flex overflow-hidden rounded-control border border-line-2">
-        <Link href="/trades" className={seg(view === 'trades')}>Trades</Link>
-        <Link href="/trades?view=risk" className={seg(view === 'risk')}>Risk and reward</Link>
-      </div>
-      <Link href="/trades/new" className="ml-auto"><Button variant="primary">New trade</Button></Link>
+      {!guest && (
+        <div className="flex overflow-hidden rounded-control border border-line-2">
+          <Link href="/trades" className={seg(view === 'trades')}>Trades</Link>
+          <Link href="/trades?view=risk" className={seg(view === 'risk')}>Risk and reward</Link>
+        </div>
+      )}
+      {!guest && <Link href="/trades/new" className="ml-auto"><Button variant="primary">New trade</Button></Link>}
     </div>
   );
 
@@ -85,26 +92,22 @@ export default async function TradesPage({ searchParams }: { searchParams: Promi
   return (
     <div className="space-y-4 p-4 md:p-6">
       {header}
-      <div className="grid grid-cols-2 gap-3 md:grid-cols-5">
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
         <Card>
           <div className={`num text-2xl font-medium ${stats.total >= 0 ? 'text-positive' : 'text-negative'}`}>{money(stats.total)}</div>
           <div className="text-xs text-fg-2">Realised P&amp;L, all trades</div>
         </Card>
         <Card>
-          <div className="num text-2xl font-medium">{stats.wins} / {stats.count}</div>
+          <div className={`num text-2xl font-medium ${stats.wins >= stats.losses ? 'text-positive' : 'text-negative'}`}>{stats.wins} / {stats.count}</div>
           <div className="text-xs text-fg-2">Winners ({(stats.winRate * 100).toFixed(0)}%), {stats.losses} losers</div>
         </Card>
         <Card>
-          <div className="num text-2xl font-medium">{stats.profitFactor.toFixed(2)}</div>
+          <div className={`num text-2xl font-medium ${stats.profitFactor >= 1 ? 'text-positive' : 'text-negative'}`}>{stats.profitFactor.toFixed(2)}</div>
           <div className="text-xs text-fg-2">Profit factor ({money(stats.grossWin)} / {money(stats.grossLoss)})</div>
         </Card>
         <Card>
           <div className={`num text-2xl font-medium ${stats.sharpe >= 0 ? 'text-positive' : 'text-negative'}`}>{stats.sharpe.toFixed(2)}</div>
           <div className="text-xs text-fg-2">Sharpe, annualised (10,000 fund, 4.2% risk-free)</div>
-        </Card>
-        <Card>
-          <div className="num text-2xl font-medium">{stats.open}</div>
-          <div className="text-xs text-fg-2">Open now · unrealised {money(stats.unrealized)}</div>
         </Card>
       </div>
 
@@ -127,7 +130,7 @@ export default async function TradesPage({ searchParams }: { searchParams: Promi
                 <tr>
                   {th('symbol', 'Symbol')}
                   <th className="py-1 text-left font-medium">Side</th>
-                  <th className="py-1 text-left font-medium">By</th>
+                  {!guest && <th className="py-1 text-left font-medium">By</th>}
                   {th('opened', 'Opened')}
                   {th('closed', 'Closed')}
                   <th className="py-1 text-right font-medium">Entry → exit / latest</th>
@@ -147,14 +150,14 @@ export default async function TradesPage({ searchParams }: { searchParams: Promi
                     <tr key={t.id} className="border-t border-line hover:bg-raised">
                       <td className="py-1.5"><Link href={`/trades/${t.id}`} className="font-semibold hover:text-accent">{t.symbol}</Link></td>
                       <td className="py-1.5 text-xs">{t.side}</td>
-                      <td className="py-1.5 text-xs text-fg-2">{t.user_name ?? t.user_email ?? ''}</td>
+                      {!guest && <td className="py-1.5 text-xs text-fg-2">{t.user_name ?? t.user_email ?? ''}</td>}
                       <td className="num py-1.5 text-xs">{t.entry_date}</td>
                       <td className="num py-1.5 text-xs">{t.is_closed && lc ? lc.close_date : <span className="text-info">open</span>}</td>
                       <td className="num py-1.5 text-right text-xs">{num(t.entry_price)} → {t.is_closed && lc ? num(lc.close_price) : num(t.latest_price)}</td>
                       <td className={`num py-1.5 text-right ${(r ?? 0) >= 0 ? 'text-positive' : 'text-negative'}`}>{pct(r)}</td>
-                      <td className="num py-1.5 text-right text-xs">{num(t.amount)}</td>
-                      <td className={`num py-1.5 text-right ${t.realized_pnl >= 0 ? 'text-positive' : 'text-negative'}`}>{money(t.realized_pnl)}</td>
-                      <td className={`num py-1.5 text-right ${t.unrealized_pnl >= 0 ? 'text-positive' : 'text-negative'}`}>{t.is_closed ? '' : money(t.unrealized_pnl)}</td>
+                      <td className="num py-1.5 text-right text-xs">£{num(t.amount)}</td>
+                      <td className={`num py-1.5 text-right ${t.realized_pnl >= 0 ? 'text-positive' : 'text-negative'}`}>{gbp(t.realized_pnl)}</td>
+                      <td className={`num py-1.5 text-right ${t.unrealized_pnl >= 0 ? 'text-positive' : 'text-negative'}`}>{t.is_closed ? '' : gbp(t.unrealized_pnl)}</td>
                       <td className="py-1.5 text-center">
                         <span className="inline-flex items-center gap-1"><GradeChip grade={t.entry_grade} className="h-5 min-w-7 text-[10px]" />→<GradeChip grade={grades[t.symbol]?.grade ?? null} className="h-5 min-w-7 text-[10px]" /></span>
                       </td>

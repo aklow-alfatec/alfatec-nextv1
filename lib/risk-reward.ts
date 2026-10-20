@@ -11,6 +11,7 @@ export interface RiskRewardRow {
   potential_reward: number;         // %
   potential_risk_reward_ratio: string;
   estimated_position_duration: number; // months
+  edited_at?: string | null;        // ISO time the note was last saved (read only)
 }
 
 export async function latestRiskReward(symbols: string[]): Promise<RiskRewardRow[]> {
@@ -18,7 +19,8 @@ export async function latestRiskReward(symbols: string[]): Promise<RiskRewardRow
   return sql<RiskRewardRow[]>`
     SELECT DISTINCT ON (symbol) symbol, to_char(date, 'YYYY-MM-DD') AS date, potential_bias,
            potential_risk::float8 AS potential_risk, potential_reward::float8 AS potential_reward,
-           potential_risk_reward_ratio, estimated_position_duration::float8 AS estimated_position_duration
+           potential_risk_reward_ratio, estimated_position_duration::float8 AS estimated_position_duration,
+           to_char(edited_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS"Z"') AS edited_at
     FROM risk_reward_summary WHERE symbol IN ${sql(symbols)} ORDER BY symbol, date DESC`;
 }
 

@@ -18,13 +18,17 @@ import {
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { GRADE_ZONES, gradeZone } from '@/lib/grade-zones';
 import { BandsPrimitive } from './bands';
+import { heatAt, heatPoints, heatmapView, type HeatmapData } from './heatmap';
 import { bandRanges, fmtValue, nearestTime, pairs, valueAt, type EquityData, type PlotSeries, type TradeMark } from './data';
 import { PANE_ORDER, PANE_TITLES, type PaneKind } from './layout';
 import { GradeZoneLegend } from '@/components/ui';
+import { partScoreColor } from '@/lib/grade-zones';
 
 /** Relative pane heights (stretch factors). */
 const STRETCH: Record<PaneKind, number> = { price: 3.2, grade: 1.7, pct: 1.2, score: 1.2, bool: 0.45, other: 1.2, equity: 2 };
 const PX_PER_STRETCH = 80;
+/** Height of one heatmap row, pixels. */
+const HEAT_ROW_PX = 16;
 /** The grade pane plots FLIP - grade so that 20 sits at the top. */
 const FLIP = 120;
 
@@ -81,12 +85,16 @@ export interface MultiPaneChartProps {
   titles?: Partial<Record<PaneKind, string>>;
   /** extra readout lines for the hovered time (seconds), after the series values */
   extraRows?: (time: number) => ReadoutRow[];
+  /** relative pane heights instead of the defaults (STRETCH), e.g. { price: 2.45, grade: 2.45 } for equal panes */
+  stretch?: Partial<Record<PaneKind, number>>;
+  /** part-score heatmap in its own pane at the bottom, on the same time axis (features/charts/heatmap.ts) */
+  heatmap?: HeatmapData | null;
   className?: string;
 }
 
 /** Price, grade %, 0-100, part-score, signal, other and equity panes on one time axis (lightweight-charts):
  *  drag to pan, wheel / pinch to zoom, double-click to reset, one crosshair and readout across panes. */
-export function MultiPaneChart({ series, equity, trades, titles, extraRows, className }: MultiPaneChartProps) {
+export function MultiPaneChart({ series, equity, trades, titles, extraRows, stretch, heatmap, className }: MultiPaneChartProps) {
   const host = useRef<HTMLDivElement>(null);
   const chartRef = useRef<IChartApi | null>(null);
   const rangeRef = useRef<{ from: Time; to: Time } | null>(null);
@@ -99,6 +107,8 @@ export function MultiPaneChart({ series, equity, trades, titles, extraRows, clas
   }, [series, equity]);
   const [readout, setReadout] = useState<Readout | null>(null);
   const [tops, setTops] = useState<{ kind: PaneKind; top: number }[]>([]);
+  const [heatBox, setHeatBox] = useState<{ top: number; height: number } | null>(null);
+  const heatRows = heatmap?.rows.length && heatmap.t.length ? heatmap.rows.length : 0;
   const [log, setLog] = useState(true);
   const [themeTick, setThemeTick] = useState(0);
 
@@ -106,7 +116,12 @@ export function MultiPaneChart({ series, equity, trades, titles, extraRows, clas
     () => PANE_ORDER.filter((k) => (k === 'equity' ? !!equity : series.some((s) => s.pane === k))),
     [series, equity],
   );
-  const height = useMemo(() => Math.round(panes.reduce((h, k) => h + STRETCH[k] * PX_PER_STRETCH, 0)) + 40, [panes]);
+  const stretchKey = JSON.stringify(stretch ?? {});
+  const factors = useMemo(() => ({ ...STRETCH, ...(stretch ?? {}) }), [stretchKey]); // eslint-disable-line react-hooks/exhaustive-deps
+  const height = useMemo(
+    () => Math.round(panes.reduce((h, k) => h + factors[k] * PX_PER_STRETCH, 0) + (heatRows ? heatRows * HEAT_ROW_PX + 6 : 0)) + 40,
+    [panes, factors, heatRows],
+  );
 
   useEffect(() => {
     const mo = new MutationObserver(() => setThemeTick((n) => n + 1));
@@ -242,17 +257,33 @@ export function MultiPaneChart({ series, equity, trades, titles, extraRows, clas
       createSeriesMarkers(anchor, marks);
     }
 
+    // the heatmap: one more pane at the bottom, its cells drawn by a custom series (no price scale of its own)
+    const heatPane = heatRows ? panes.length : -1;
+    if (heatmap && heatRows) {
+      const hs = chart.addCustomSeries(
+        heatmapView(),
+        { rows: heatRows, priceLineVisible: false, lastValueVisible: false, priceFormat: { type: 'custom', formatter: () => '', minMove: 1 } },
+        heatPane,
+      );
+      hs.setData(heatPoints(heatmap) as never);
+      hs.priceScale().applyOptions({ scaleMargins: { top: 0, bottom: 0 } });
+    }
+
     chart.priceScale('right', 0).applyOptions({ scaleMargins: { top: 0.06, bottom: 0.1 } });
-    chart.panes().forEach((p, i) => p.setStretchFactor(STRETCH[panes[i]] ?? 1));
+    // stretch factors are relative: the heatmap's is its pixel height in the same units as the others
+    chart.panes().forEach((p, i) => p.setStretchFactor(i === heatPane ? (heatRows * HEAT_ROW_PX + 6) / PX_PER_STRETCH : factors[panes[i]] ?? 1));
 
     const measure = () => {
       let top = 0;
       const out: { kind: PaneKind; top: number }[] = [];
+      let heat: { top: number; height: number } | null = null;
       chart.panes().forEach((p, i) => {
-        out.push({ kind: panes[i], top });
+        if (i === heatPane) heat = { top, height: p.getHeight() };
+        else out.push({ kind: panes[i], top });
         top += p.getHeight() + 1;
       });
       setTops(out);
+      setHeatBox(heat);
     };
     const onRange = (r: { from: Time; to: Time } | null) => {
       if (r) rangeRef.current = r;
@@ -274,6 +305,10 @@ export function MultiPaneChart({ series, equity, trades, titles, extraRows, clas
         rows.push({ label: 'Drawdown', color: th.negative, text: d === null ? '-' : `${(d * 100).toFixed(1)}%` });
       }
       if (extraRows) rows.push(...extraRows(t));
+      if (heatmap && heatRows) {
+        const sc = heatAt(heatmap, t);
+        if (sc) heatmap.rows.forEach((name, r) => rows.push({ label: name, color: partScoreColor(sc[r]) ?? th.text3, text: sc[r] === null || sc[r] === undefined ? '-' : String(sc[r]) }));
+      }
       setReadout({ time: t, rows });
     };
     chart.subscribeCrosshairMove(onMove as never);
@@ -302,7 +337,7 @@ export function MultiPaneChart({ series, equity, trades, titles, extraRows, clas
       chart.remove();
       chartRef.current = null;
     };
-  }, [series, equity, trades, extraRows, panes, log, themeTick, span]);
+  }, [series, equity, trades, extraRows, panes, log, themeTick, span, factors, heatmap, heatRows]);
 
   return (
     <div className={className}>
@@ -316,9 +351,19 @@ export function MultiPaneChart({ series, equity, trades, titles, extraRows, clas
       </div>
       <div className="relative">
         <div ref={host} style={{ height }} onDoubleClick={() => chartRef.current?.timeScale().fitContent()} />
-        <div className="pointer-events-none absolute inset-0 text-[11px] text-fg-3">
+        {/* pane titles and heatmap row names, above the chart's canvases (z-[5]) and below the readout (z-10) */}
+        <div className="pointer-events-none absolute inset-0 z-[5] text-[11px] text-fg-3">
           {tops.map((p) => (
             <span key={p.kind} className="absolute left-2" style={{ top: p.top + 3 }}>{titles?.[p.kind] ?? PANE_TITLES[p.kind]}</span>
+          ))}
+          {heatBox && heatmap && heatmap.rows.map((name, r) => (
+            <span
+              key={`heat-${r}`}
+              className="absolute left-1 rounded-sm bg-surface/90 px-1 py-px text-[10px] font-medium leading-none text-fg shadow-sm"
+              style={{ top: heatBox.top + ((r + 0.5) * heatBox.height) / heatRows - 5 }}
+            >
+              {name}
+            </span>
           ))}
         </div>
         {readout && (
@@ -334,6 +379,17 @@ export function MultiPaneChart({ series, equity, trades, titles, extraRows, clas
         )}
       </div>
       {series.some((s) => s.pane === 'grade') && <GradeZoneLegend compact className="mt-1.5" />}
+      {heatRows > 0 && (
+        <div className="mt-1 flex flex-wrap items-center gap-2 text-[10px] text-fg-3">
+          <span>Part scores:</span>
+          {[5, 4, 3, 2, 1].map((v) => (
+            <span key={v} className="inline-flex items-center gap-1">
+              <i className="inline-block h-2.5 w-3 rounded-sm" style={{ background: partScoreColor(v) ?? undefined }} />
+              {v}{v === 5 ? ' undervalued' : v === 1 ? ' overvalued' : ''}
+            </span>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

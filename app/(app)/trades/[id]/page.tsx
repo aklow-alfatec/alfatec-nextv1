@@ -4,6 +4,7 @@ import { auth } from '@/auth';
 import { Card, GradeChip, ReadingTag } from '@/components/ui';
 import { lastFinalFriday, latestGrades } from '@/lib/grades';
 import { getTrade } from '@/lib/trades';
+import { currentViewer } from '@/lib/viewer';
 import { TradeActions } from './trade-actions';
 
 export const dynamic = 'force-dynamic';
@@ -13,7 +14,8 @@ const money = (v: number) => `${v < 0 ? '−' : v > 0 ? '+' : ''}${Math.abs(v).t
 
 export default async function TradePage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const [t, session] = await Promise.all([getTrade(id), auth()]);
+  const [t, session, viewer] = await Promise.all([getTrade(id), auth(), currentViewer()]);
+  const guest = viewer?.guest ?? true;
   if (!t) notFound();
   const me = (session?.user as { id?: string } | undefined)?.id;
   const owner = !!me && me === t.user_id;
@@ -21,7 +23,7 @@ export default async function TradePage({ params }: { params: Promise<{ id: stri
   const total = t.realized_pnl + t.unrealized_pnl;
   const facts: [string, React.ReactNode][] = [
     ['Side', t.side],
-    ['Entered by', t.user_name ?? t.user_email ?? '-'],
+    ...(guest ? [] : [['Entered by', t.user_name ?? t.user_email ?? '-'] as [string, React.ReactNode]]),
     ['Entry', `${t.entry_date} at ${num(t.entry_price)}`],
     ['Quantity', `${num(t.quantity)}${t.notional ? ' (by amount)' : ''} · remaining ${num(t.remaining_quantity)}`],
     ['Amount', num(t.amount)],

@@ -12,7 +12,6 @@ export const dynamic = 'force-dynamic';
 const RANGES = { '3m': 13, '6m': 26, '1y': 52, '5y': 260, all: 1400 } as const;
 type Range = keyof typeof RANGES;
 const fmtDay = (d: string) => new Date(`${d}T00:00:00Z`).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric', timeZone: 'UTC' });
-const short = (d: string) => new Date(`${d}T00:00:00Z`).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', timeZone: 'UTC' });
 const fmt = (v: unknown) =>
   typeof v === 'number' && Number.isFinite(v) ? v.toLocaleString(undefined, { maximumFractionDigits: Math.abs(v) < 1 ? 5 : Math.abs(v) < 100 ? 2 : 1 }) : '-';
 const pct = (v: number | null, d = 1) => (v === null ? '-' : `${(v * 100).toFixed(d)}%`);
@@ -63,6 +62,16 @@ export default async function SymbolPage({ params, searchParams }: { params: Pro
     return v && typeof v === 'object' && Number.isFinite(Number((v as Record<string, unknown>).grade)) ? Number((v as Record<string, unknown>).grade) : null;
   };
 
+  // part scores of every Friday in the chart's range, as the heatmap pane under the grade. Guest view: rows are
+  // "Indicator n" here on the server, so the real part names never reach the browser
+  const heatmap = parts.length
+    ? {
+        rows: parts.map((c, i) => (guest ? maskedName(i) : c.node.replace(/_GRADE$/, ''))),
+        t: weeks.map((w) => Date.parse(`${w}T00:00:00Z`) / 1000),
+        scores: weeks.map((w) => parts.map((c) => nodeGrade(weekly[w]?.nodes, c.node))),
+      }
+    : null;
+
   return (
     <div className="space-y-4 p-4 md:p-6">
       <div className="text-sm text-fg-2"><Link href="/grades" className="hover:underline">Grades</Link> / {symbol}</div>
@@ -109,7 +118,11 @@ export default async function SymbolPage({ params, searchParams }: { params: Pro
           </div>
         }
       >
-        <SymbolChart prices={px} weekly={weeks.map((w) => ({ date: w, grade: weekly[w]?.grade ?? null, reading: weekly[w]?.reading ?? null }))} />
+        <SymbolChart
+          prices={px}
+          weekly={weeks.map((w) => ({ date: w, grade: weekly[w]?.grade ?? null, reading: weekly[w]?.reading ?? null }))}
+          heatmap={heatmap}
+        />
       </Card>
 
       {pipe && !guest && (
@@ -165,45 +178,6 @@ export default async function SymbolPage({ params, searchParams }: { params: Pro
         </div>
       )}
 
-      {pipe && parts.length > 0 && (
-        <Card title="Part scores, last 54 weeks">
-          <div className="overflow-x-auto">
-            <table className="border-separate border-spacing-px text-[10px]">
-              <thead>
-                <tr className="text-fg-3">
-                  <th className="sticky left-0 bg-surface pr-2 text-left font-medium">Part</th>
-                  {heatWeeks.map((w, i) => (
-                    <th key={w} className="num font-normal" title={w}>{i % 4 === 0 ? short(w) : ''}</th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {[
-                  // guest view: rows keyed and labelled Indicator n, so the real node names never reach the browser
-                  // (React keys travel in the page payload); the node itself is only used here on the server
-                  ...parts.map((c, i) => ({ key: guest ? `p${i}` : c.node, label: guest ? maskedName(i) : c.node.replace(/_GRADE$/, ''), node: c.node })),
-                  { key: '__TOTAL__', label: 'Grade', node: '__TOTAL__' },
-                ].map(({ key, label, node: k }) => (
-                  <tr key={key}>
-                    <td className="sticky left-0 whitespace-nowrap bg-surface pr-2 text-xs">{label}</td>
-                    {heatWeeks.map((w) => {
-                      const p = heat[w];
-                      const g = k === '__TOTAL__' ? p?.grade ?? null : nodeGrade(p?.nodes, k);
-                      return (
-                        <td key={w} title={`${w}: ${g === null ? 'no data' : k === '__TOTAL__' ? Math.round(g) : g}`}>
-                          {k === '__TOTAL__'
-                            ? <GradeChip grade={g} className="h-5 min-w-0 w-3 px-0 text-[0px]" />
-                            : <PartScoreChip score={g} className="h-5 min-w-0 w-3 px-0 text-[0px]" />}
-                        </td>
-                      );
-                    })}
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </Card>
-      )}
     </div>
   );
 }

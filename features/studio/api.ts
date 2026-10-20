@@ -11,7 +11,8 @@ const DB_PATHS = [
   /^\/(runs|experiments)(\?|$)/,
   /^\/(runs|experiments)\/[^/?]+\/status$/,
   /^\/experiments\/[^/?]+$/,
-  /^\/runs\/[^/?]+\?include_series=false&events_limit=0$/,
+  /^\/runs\/[^/?]+(\?|$)/,                    // a run, its thinned columns and download links (Storage, lib/run-store.ts)
+  /^\/runs\/[^/?]+\/series-catalogue$/,
 ];
 
 /** True when a request is a studio read the database answers (GET only; see app/api/studio-db). */
@@ -143,6 +144,8 @@ export interface RunRow {
   error: string | null;
   created_at: string;
   finished_at: string | null;
+  /** engine_runs.tags (M13), served from the database only */
+  tags?: string[];
 }
 
 export interface ParamDim {
@@ -264,7 +267,7 @@ export const engineApi = {
   remove: (id: string) => call<void>(`/graphs/${encodeURIComponent(id)}`, { method: 'DELETE' }),
   queueRun: (body: { graph_id: string; start: string; end: string; params?: Record<string, unknown> }) =>
     call<{ id: string; status: JobStatus }>('/runs', { method: 'POST', body: JSON.stringify(body) }),
-  runs: (q: { graph_id?: string; status?: string; limit?: number } = {}) => {
+  runs: (q: { graph_id?: string; status?: string; tag?: string; limit?: number } = {}) => {
     const s = new URLSearchParams(Object.entries(q).filter(([, v]) => v !== undefined && v !== '').map(([k, v]) => [k, String(v)]));
     return call<RunRow[]>(`/runs${s.toString() ? `?${s}` : ''}`);
   },

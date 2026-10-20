@@ -2,6 +2,8 @@
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { Badge, Button, Card } from '@/components/ui';
+import { StrategySettings } from '@/features/studio/strategy-settings';
+import { RunName } from '@/features/studio/run-name';
 import { engineApi, type RunDetail } from '@/features/studio/api';
 import { RunChart } from '@/features/charts/run-chart';
 import { runSource, type ChartSource } from '@/features/charts/sources';
@@ -55,7 +57,8 @@ export function RunClient({ id }: { id: string }) {
       .catch(() => undefined);
   }, [run?.graph_id, run?.graph_version_id]);
 
-  // the indicator chart reads the run's series from the engine (catalogue first, columns as the layout needs them)
+  // the indicator chart reads the run's series from Storage via /api/studio-db (catalogue first, then columns as the
+  // layout needs them); only added indicators are computed by the engine
   const done = run?.status === 'done';
   useEffect(() => {
     if (!done) return;
@@ -67,6 +70,8 @@ export function RunClient({ id }: { id: string }) {
   }, [id, done]);
 
   const strategies = run?.summary?.strategies ?? [];
+  // a run with its own settings opens its graph with them filled in (read-only; the saved graph is unchanged)
+  const graphHref = run?.graph_id && run.params && Object.keys(run.params).length ? `/studio/graphs/${run.graph_id}?run=${id}` : undefined;
   const active = run && ACTIVE.has(run.status);
   return (
     <div className="space-y-4 p-4 md:p-6">
@@ -75,14 +80,15 @@ export function RunClient({ id }: { id: string }) {
         <span className="text-fg-3">/</span>
         <h1 className="text-xl font-semibold">{graphName || 'Run'}</h1>
         {versionNo !== null && <span className="rounded-chip bg-line px-2 py-0.5 text-[11px] text-fg-2">graph v{versionNo}</span>}
+        {run && <RunName runId={id} tags={run.tags ?? []} onSaved={(tags) => setRun((r) => (r ? { ...r, tags } : r))} />}
         {run?.status && <Badge tone={(run.status === 'done' ? 'positive' : run.status === 'failed' ? 'negative' : 'info') as never}>{run.status}</Badge>}
         <span className="num text-sm text-fg-2">
           {run?.start_date?.slice(0, 10)} to {run?.end_date?.slice(0, 10)}
         </span>
         <span className="ml-auto flex gap-2">
           {run?.graph_id && (
-            <Link href={`/studio/graphs/${run.graph_id}`}>
-              <Button>Open graph</Button>
+            <Link href={graphHref ?? `/studio/graphs/${run.graph_id}`}>
+              <Button>{graphHref ? 'Open graph with these settings' : 'Open graph'}</Button>
             </Link>
           )}
           {active && <Button onClick={() => engineApi.stopRun(id).catch((e: Error) => setError(e.message))}>Stop</Button>}
@@ -103,6 +109,7 @@ export function RunClient({ id }: { id: string }) {
           <pre className="whitespace-pre-wrap text-xs text-negative">{run.error}</pre>
         </Card>
       )}
+      {run && !active && <StrategySettings params={run.params} graphHref={graphHref} />}
       {run?.status === 'done' && strategies.length === 0 && (
         <Card>
           <p className="text-sm text-fg-2">This run has no strategy block, so there is no equity curve. Its outputs are in the downloads below.</p>

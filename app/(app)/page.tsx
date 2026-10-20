@@ -122,7 +122,7 @@ export default async function OverviewPage({ searchParams }: { searchParams: Pro
           <details key={s.key} open className="group">
             <summary className="flex cursor-pointer list-none items-center gap-2 border-b border-line pb-1 text-sm">
               <span className="text-fg-3 transition-transform group-open:rotate-90">›</span>
-              <span className="font-semibold">{s.label}</span>
+              <span className={`font-semibold ${s.key === 'other' ? '' : 'text-[#EA7A12]'}`}>{s.label}</span>
               <span className="num rounded-chip bg-line px-1.5 text-[11px] text-fg-2">{s.items.length}</span>
               <span className="num ml-auto text-[11px] text-fg-3">
                 {b.under} undervalued · {b.normal} normal · {b.over} overvalued

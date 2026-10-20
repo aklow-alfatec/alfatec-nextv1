@@ -1,0 +1,944 @@
+{
+ "data.bars": {
+  "label": "Bars",
+  "outputs": {
+   "close": "float",
+   "high": "float",
+   "low": "float",
+   "open": "float",
+   "volume": "float"
+  }
+ },
+ "edge.overlap": {
+  "label": "Edge overlap",
+  "outputs": {
+   "co_occurrence": "float",
+   "detail": "object",
+   "return_corr": "float",
+   "share_a": "float",
+   "share_b": "float"
+  }
+ },
+ "edge.stack": {
+  "label": "Edge stack",
+  "outputs": {
+   "kelly": "float",
+   "n_active": "int",
+   "p_win": "float",
+   "payoff": "float",
+   "score": "float",
+   "signal": "float"
+  }
+ },
+ "edge.stats": {
+  "label": "Edge statistics",
+  "outputs": {
+   "active_share": "float",
+   "avg_loss": "float",
+   "avg_win": "float",
+   "base_rate": "float",
+   "expectancy": "float",
+   "kelly": "float",
+   "lift": "float",
+   "n": "float",
+   "n_bars": "float",
+   "payoff": "float",
+   "t_stat": "float",
+   "win_rate": "float"
+  }
+ },
+ "filters.bocpd": {
+  "label": "Bayesian change-point",
+  "outputs": {
+   "cp_prob": "float",
+   "exp_run": "float",
+   "run_length": "float",
+   "run_probs": "object"
+  }
+ },
+ "filters.cusum": {
+  "label": "CUSUM change detector",
+  "outputs": {
+   "alarm": "bool",
+   "direction": "float",
+   "neg": "float",
+   "pos": "float"
+  }
+ },
+ "filters.garch": {
+  "label": "GARCH(1,1) volatility",
+  "outputs": {
+   "alpha": "float",
+   "beta": "float",
+   "persistence": "float",
+   "vol": "float"
+  }
+ },
+ "filters.hmm_regime": {
+  "label": "HMM regime",
+  "outputs": {
+   "p1": "float",
+   "p2": "float",
+   "p3": "float",
+   "p4": "float",
+   "p5": "float",
+   "prob": "float",
+   "probs": "object",
+   "state": "int"
+  }
+ },
+ "filters.kalman_hedge": {
+  "label": "Kalman hedge ratio",
+  "outputs": {
+   "alpha": "float",
+   "beta": "float",
+   "spread": "float",
+   "z": "float"
+  }
+ },
+ "filters.kalman_trend": {
+  "label": "Kalman trend",
+  "outputs": {
+   "innovation": "float",
+   "level": "float",
+   "slope": "float",
+   "z": "float"
+  }
+ },
+ "labels.frac_diff": {
+  "label": "Fractional difference",
+  "outputs": {
+   "y": "float"
+  }
+ },
+ "labels.meta": {
+  "label": "Meta-label",
+  "outputs": {
+   "meta": "float"
+  }
+ },
+ "labels.triple_barrier": {
+  "label": "Triple-barrier labels",
+  "outputs": {
+   "label": "float",
+   "ret": "float",
+   "t1": "int",
+   "vol": "float"
+  }
+ },
+ "labels.uniqueness": {
+  "label": "Sample uniqueness",
+  "outputs": {
+   "weight": "float"
+  }
+ },
+ "legacy.getLatestStock": {
+  "label": "Latest close (legacy)",
+  "outputs": {
+   "grade": "float",
+   "out": "object",
+   "present": "bool",
+   "value": "float"
+  }
+ },
+ "legacy.getLatestStockMinus": {
+  "label": "Close difference (legacy)",
+  "outputs": {
+   "grade": "float",
+   "out": "object",
+   "present": "bool",
+   "value": "float"
+  }
+ },
+ "legacy.getLatestStockRatio": {
+  "label": "Close ratio (legacy)",
+  "outputs": {
+   "grade": "float",
+   "out": "object",
+   "present": "bool",
+   "value": "float"
+  }
+ },
+ "legacy.indicatorGraderChain": {
+  "label": "Indicator grader (legacy)",
+  "outputs": {
+   "grade": "float",
+   "out": "object",
+   "present": "bool",
+   "value": "float"
+  }
+ },
+ "legacy.linearGraderChain": {
+  "label": "Linear grader (legacy)",
+  "outputs": {
+   "grade": "float",
+   "out": "object",
+   "present": "bool",
+   "value": "float"
+  }
+ },
+ "legacy.linearGraderChainWithMultiplier": {
+  "label": "Linear grader with multiplier (legacy)",
+  "outputs": {
+   "grade": "float",
+   "out": "object",
+   "present": "bool",
+   "value": "float"
+  }
+ },
+ "legacy.linearGraderTimeVaryingChain": {
+  "label": "Time-varying grader (legacy)",
+  "outputs": {
+   "grade": "float",
+   "out": "object",
+   "present": "bool",
+   "value": "float"
+  }
+ },
+ "legacy.monthlyGraderChain": {
+  "label": "Month grader (legacy)",
+  "outputs": {
+   "grade": "float",
+   "out": "object",
+   "present": "bool",
+   "value": "float"
+  }
+ },
+ "legacy.nodeAdderChain": {
+  "label": "Grade adder (legacy)",
+  "outputs": {
+   "grade": "float",
+   "out": "object",
+   "pct": "float",
+   "present": "bool",
+   "value": "float"
+  }
+ },
+ "levels.gap": {
+  "label": "Opening gap",
+  "outputs": {
+   "gap": "float"
+  }
+ },
+ "levels.opening_range": {
+  "label": "Opening range",
+  "outputs": {
+   "high": "float",
+   "low": "float"
+  }
+ },
+ "levels.prior_day": {
+  "label": "Prior day levels",
+  "outputs": {
+   "close": "float",
+   "high": "float",
+   "low": "float"
+  }
+ },
+ "logic.and": {
+  "label": "And",
+  "outputs": {
+   "out": "bool"
+  }
+ },
+ "logic.not": {
+  "label": "Not",
+  "outputs": {
+   "out": "bool"
+  }
+ },
+ "logic.or": {
+  "label": "Or",
+  "outputs": {
+   "out": "bool"
+  }
+ },
+ "markov.chain": {
+  "label": "Markov chain",
+  "outputs": {
+   "detail": "object",
+   "dwell": "float",
+   "next_1": "float",
+   "next_10": "float",
+   "next_2": "float",
+   "next_3": "float",
+   "next_4": "float",
+   "next_5": "float",
+   "next_6": "float",
+   "next_7": "float",
+   "next_8": "float",
+   "next_9": "float",
+   "next_state": "int",
+   "p_nstep_target": "float",
+   "p_reach_target": "float",
+   "p_stay": "float",
+   "stationary_cur": "float",
+   "stationary_target": "float",
+   "transitions": "float"
+  }
+ },
+ "markov.discretise": {
+  "label": "State discretiser",
+  "outputs": {
+   "k": "int",
+   "state": "int"
+  }
+ },
+ "math.abs": {
+  "label": "Absolute value",
+  "outputs": {
+   "out": "float"
+  }
+ },
+ "math.add": {
+  "label": "Add",
+  "outputs": {
+   "out": "float"
+  }
+ },
+ "math.clip": {
+  "label": "Clip",
+  "outputs": {
+   "out": "float"
+  }
+ },
+ "math.compare": {
+  "label": "Compare",
+  "outputs": {
+   "out": "bool"
+  }
+ },
+ "math.const": {
+  "label": "Constant",
+  "outputs": {
+   "out": "float"
+  }
+ },
+ "math.cross": {
+  "label": "Cross",
+  "outputs": {
+   "over": "bool",
+   "under": "bool"
+  }
+ },
+ "math.diff": {
+  "label": "Difference",
+  "outputs": {
+   "out": "float"
+  }
+ },
+ "math.div": {
+  "label": "Divide",
+  "outputs": {
+   "out": "float"
+  }
+ },
+ "math.expr": {
+  "label": "Expression",
+  "outputs": {
+   "out": "float"
+  }
+ },
+ "math.log": {
+  "label": "Natural log",
+  "outputs": {
+   "out": "float"
+  }
+ },
+ "math.mul": {
+  "label": "Multiply",
+  "outputs": {
+   "out": "float"
+  }
+ },
+ "math.pct_change": {
+  "label": "Percent change",
+  "outputs": {
+   "out": "float"
+  }
+ },
+ "math.rolling": {
+  "label": "Rolling",
+  "outputs": {
+   "out": "float"
+  }
+ },
+ "math.shift": {
+  "label": "Shift (lag)",
+  "outputs": {
+   "out": "float"
+  }
+ },
+ "math.sub": {
+  "label": "Subtract",
+  "outputs": {
+   "out": "float"
+  }
+ },
+ "ml.classifier": {
+  "label": "ML classifier",
+  "outputs": {
+   "pred": "float",
+   "proba": "float"
+  }
+ },
+ "ml.features": {
+  "label": "Feature matrix",
+  "outputs": {
+   "features": "object",
+   "n_features": "int"
+  }
+ },
+ "ml.regressor": {
+  "label": "ML regressor",
+  "outputs": {
+   "pred": "float"
+  }
+ },
+ "momentum.ao": {
+  "label": "Awesome oscillator",
+  "outputs": {
+   "ao": "float"
+  }
+ },
+ "momentum.cci": {
+  "label": "CCI",
+  "outputs": {
+   "cci": "float"
+  }
+ },
+ "momentum.cmo": {
+  "label": "Chande momentum oscillator",
+  "outputs": {
+   "cmo": "float"
+  }
+ },
+ "momentum.mom": {
+  "label": "Momentum",
+  "outputs": {
+   "mom": "float"
+  }
+ },
+ "momentum.roc": {
+  "label": "Rate of change",
+  "outputs": {
+   "roc": "float"
+  }
+ },
+ "momentum.rsi": {
+  "label": "RSI",
+  "outputs": {
+   "rsi": "float"
+  }
+ },
+ "momentum.stoch": {
+  "label": "Stochastic",
+  "outputs": {
+   "d": "float",
+   "k": "float"
+  }
+ },
+ "momentum.stoch_rsi": {
+  "label": "Stochastic RSI",
+  "outputs": {
+   "d": "float",
+   "k": "float"
+  }
+ },
+ "momentum.tsi": {
+  "label": "True strength index",
+  "outputs": {
+   "signal": "float",
+   "tsi": "float"
+  }
+ },
+ "momentum.ultosc": {
+  "label": "Ultimate oscillator",
+  "outputs": {
+   "ultosc": "float"
+  }
+ },
+ "momentum.willr": {
+  "label": "Williams %R",
+  "outputs": {
+   "willr": "float"
+  }
+ },
+ "options.chain": {
+  "label": "Option chain grid",
+  "outputs": {
+   "chain": "object"
+  }
+ },
+ "options.price": {
+  "label": "Option price & Greeks",
+  "outputs": {
+   "delta": "float",
+   "gamma": "float",
+   "p_itm": "float",
+   "p_itm_real": "float",
+   "p_touch": "float",
+   "p_touch_real": "float",
+   "price": "float",
+   "rho": "float",
+   "theta": "float",
+   "vega": "float"
+  }
+ },
+ "pivots.fractal": {
+  "label": "Fractals (confirmed)",
+  "outputs": {
+   "high": "float",
+   "high_bars_ago": "float",
+   "high_event": "bool",
+   "low": "float",
+   "low_bars_ago": "float",
+   "low_event": "bool"
+  }
+ },
+ "pivots.swing": {
+  "label": "Swing highs/lows (confirmed)",
+  "outputs": {
+   "high": "float",
+   "high_bars_ago": "float",
+   "high_event": "bool",
+   "low": "float",
+   "low_bars_ago": "float",
+   "low_event": "bool"
+  }
+ },
+ "pivots.zigzag": {
+  "label": "ZigZag (confirmed)",
+  "outputs": {
+   "direction": "int",
+   "high": "float",
+   "high_event": "bool",
+   "low": "float",
+   "low_event": "bool"
+  }
+ },
+ "probability.beta_binomial": {
+  "label": "Bayesian hit rate",
+  "outputs": {
+   "hi": "float",
+   "lo": "float",
+   "mean": "float",
+   "n": "float",
+   "wins": "float"
+  }
+ },
+ "probability.conditional_forward": {
+  "label": "Conditional forward returns",
+  "outputs": {
+   "count": "float",
+   "mean": "float",
+   "mean_ci_hi": "float",
+   "mean_ci_lo": "float",
+   "median": "float",
+   "prob": "float",
+   "prob_ci_hi": "float",
+   "prob_ci_lo": "float",
+   "q_hi": "float",
+   "q_lo": "float"
+  }
+ },
+ "probability.kelly": {
+  "label": "Kelly fraction",
+  "outputs": {
+   "fraction": "float",
+   "full": "float"
+  }
+ },
+ "probability.level_hit_bootstrap": {
+  "label": "Level-hit probability (bootstrap)",
+  "outputs": {
+   "p_end": "float",
+   "p_hit": "float"
+  }
+ },
+ "probability.level_hit_gbm": {
+  "label": "Level-hit probability (GBM)",
+  "outputs": {
+   "mu": "float",
+   "p_end": "float",
+   "p_hit": "float",
+   "sigma": "float"
+  }
+ },
+ "signal.day_trade": {
+  "label": "Day-trade rules",
+  "outputs": {
+   "signal": "float"
+  }
+ },
+ "signal.grade_triggers": {
+  "label": "Grade triggers (nextv0 rules)",
+  "outputs": {
+   "events": "object",
+   "fired": "bool",
+   "signal": "float"
+  }
+ },
+ "stats.autocorr": {
+  "label": "Rolling autocorrelation",
+  "outputs": {
+   "autocorr": "float"
+  }
+ },
+ "stats.beta": {
+  "label": "Rolling beta",
+  "outputs": {
+   "beta": "float"
+  }
+ },
+ "stats.coint_pvalue": {
+  "label": "Rolling cointegration p-value",
+  "outputs": {
+   "pvalue": "float",
+   "tstat": "float"
+  }
+ },
+ "stats.correlation": {
+  "label": "Rolling correlation",
+  "outputs": {
+   "corr": "float"
+  }
+ },
+ "stats.drawdown": {
+  "label": "Drawdown",
+  "outputs": {
+   "drawdown": "float",
+   "max_drawdown": "float",
+   "peak": "float"
+  }
+ },
+ "stats.hurst": {
+  "label": "Hurst exponent",
+  "outputs": {
+   "hurst": "float"
+  }
+ },
+ "stats.kurtosis": {
+  "label": "Rolling kurtosis",
+  "outputs": {
+   "kurtosis": "float"
+  }
+ },
+ "stats.percentile_rank": {
+  "label": "Percentile rank",
+  "outputs": {
+   "rank": "float"
+  }
+ },
+ "stats.skew": {
+  "label": "Rolling skewness",
+  "outputs": {
+   "skew": "float"
+  }
+ },
+ "stats.spread_zscore": {
+  "label": "Spread z-score (pairs)",
+  "outputs": {
+   "hedge_ratio": "float",
+   "spread": "float",
+   "zscore": "float"
+  }
+ },
+ "stats.zscore": {
+  "label": "Rolling z-score",
+  "outputs": {
+   "zscore": "float"
+  }
+ },
+ "strategy.futures": {
+  "label": "Futures strategy",
+  "outputs": {
+   "costs": "float",
+   "equity": "float",
+   "pnl": "float",
+   "position": "float",
+   "trades": "object"
+  }
+ },
+ "strategy.nextv0_policy": {
+  "label": "nextv0 policy",
+  "outputs": {
+   "cash": "float",
+   "drawdown": "float",
+   "equity": "float",
+   "equity_drawdown": "float",
+   "events": "object",
+   "position": "float"
+  }
+ },
+ "strategy.portfolio": {
+  "label": "Portfolio",
+  "outputs": {
+   "cash": "float",
+   "derisked": "float",
+   "drawdown": "float",
+   "equity": "float",
+   "gross": "float",
+   "net": "float",
+   "turnover": "float",
+   "weights": "object"
+  }
+ },
+ "strategy.signal": {
+  "label": "Signal strategy",
+  "outputs": {
+   "cash": "float",
+   "drawdown": "float",
+   "equity": "float",
+   "events": "object",
+   "position": "float",
+   "trade_notional": "float",
+   "trades": "object",
+   "weight": "float"
+  }
+ },
+ "time.session": {
+  "label": "Exchange session",
+  "outputs": {
+   "day": "float",
+   "first": "float",
+   "in_session": "float",
+   "minute": "float"
+  }
+ },
+ "trend.adx": {
+  "label": "ADX / DMI",
+  "outputs": {
+   "adx": "float",
+   "dx": "float",
+   "minus_di": "float",
+   "plus_di": "float"
+  }
+ },
+ "trend.aroon": {
+  "label": "Aroon",
+  "outputs": {
+   "down": "float",
+   "osc": "float",
+   "up": "float"
+  }
+ },
+ "trend.dema": {
+  "label": "DEMA",
+  "outputs": {
+   "dema": "float"
+  }
+ },
+ "trend.ema": {
+  "label": "EMA",
+  "outputs": {
+   "ema": "float"
+  }
+ },
+ "trend.hma": {
+  "label": "Hull MA",
+  "outputs": {
+   "hma": "float"
+  }
+ },
+ "trend.ichimoku": {
+  "label": "Ichimoku",
+  "outputs": {
+   "kijun": "float",
+   "senkou_a": "float",
+   "senkou_b": "float",
+   "tenkan": "float"
+  }
+ },
+ "trend.kama": {
+  "label": "KAMA",
+  "outputs": {
+   "kama": "float"
+  }
+ },
+ "trend.linreg": {
+  "label": "Linear regression",
+  "outputs": {
+   "slope": "float",
+   "value": "float"
+  }
+ },
+ "trend.macd": {
+  "label": "MACD",
+  "outputs": {
+   "hist": "float",
+   "macd": "float",
+   "signal": "float"
+  }
+ },
+ "trend.ppo": {
+  "label": "PPO",
+  "outputs": {
+   "hist": "float",
+   "ppo": "float",
+   "signal": "float"
+  }
+ },
+ "trend.psar": {
+  "label": "Parabolic SAR",
+  "outputs": {
+   "direction": "float",
+   "sar": "float"
+  }
+ },
+ "trend.sma": {
+  "label": "SMA",
+  "outputs": {
+   "sma": "float"
+  }
+ },
+ "trend.supertrend": {
+  "label": "Supertrend",
+  "outputs": {
+   "direction": "float",
+   "line": "float"
+  }
+ },
+ "trend.tema": {
+  "label": "TEMA",
+  "outputs": {
+   "tema": "float"
+  }
+ },
+ "trend.trix": {
+  "label": "TRIX",
+  "outputs": {
+   "trix": "float"
+  }
+ },
+ "trend.vwma": {
+  "label": "VWMA",
+  "outputs": {
+   "vwma": "float"
+  }
+ },
+ "trend.wma": {
+  "label": "WMA",
+  "outputs": {
+   "wma": "float"
+  }
+ },
+ "volatility.atr": {
+  "label": "ATR / NATR",
+  "outputs": {
+   "atr": "float",
+   "natr": "float",
+   "tr": "float"
+  }
+ },
+ "volatility.bollinger": {
+  "label": "Bollinger Bands",
+  "outputs": {
+   "bandwidth": "float",
+   "lower": "float",
+   "mid": "float",
+   "pct_b": "float",
+   "upper": "float"
+  }
+ },
+ "volatility.donchian": {
+  "label": "Donchian Channels",
+  "outputs": {
+   "lower": "float",
+   "mid": "float",
+   "upper": "float"
+  }
+ },
+ "volatility.garman_klass": {
+  "label": "Garman-Klass volatility",
+  "outputs": {
+   "vol": "float"
+  }
+ },
+ "volatility.hv": {
+  "label": "Historical volatility (close-to-close)",
+  "outputs": {
+   "hv": "float"
+  }
+ },
+ "volatility.keltner": {
+  "label": "Keltner Channels",
+  "outputs": {
+   "lower": "float",
+   "mid": "float",
+   "upper": "float"
+  }
+ },
+ "volatility.parkinson": {
+  "label": "Parkinson volatility",
+  "outputs": {
+   "vol": "float"
+  }
+ },
+ "volatility.stddev": {
+  "label": "Standard deviation",
+  "outputs": {
+   "stddev": "float"
+  }
+ },
+ "volatility.yang_zhang": {
+  "label": "Yang-Zhang volatility",
+  "outputs": {
+   "vol": "float"
+  }
+ },
+ "volume.ad": {
+  "label": "Accumulation/Distribution line",
+  "outputs": {
+   "ad": "float"
+  }
+ },
+ "volume.cmf": {
+  "label": "Chaikin Money Flow",
+  "outputs": {
+   "cmf": "float"
+  }
+ },
+ "volume.eom": {
+  "label": "Ease of Movement",
+  "outputs": {
+   "eom": "float"
+  }
+ },
+ "volume.force_index": {
+  "label": "Force Index",
+  "outputs": {
+   "force": "float"
+  }
+ },
+ "volume.mfi": {
+  "label": "Money Flow Index",
+  "outputs": {
+   "mfi": "float"
+  }
+ },
+ "volume.obv": {
+  "label": "On-Balance Volume",
+  "outputs": {
+   "obv": "float"
+  }
+ },
+ "volume.oscillator": {
+  "label": "Volume oscillator",
+  "outputs": {
+   "osc": "float"
+  }
+ },
+ "volume.vwap_anchored": {
+  "label": "Anchored VWAP",
+  "outputs": {
+   "vwap": "float"
+  }
+ },
+ "volume.vwap_session": {
+  "label": "Session VWAP",
+  "outputs": {
+   "vwap": "float"
+  }
+ }
+}

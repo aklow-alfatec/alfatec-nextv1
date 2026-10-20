@@ -13,11 +13,13 @@ test('read-only studio paths come from the database', () => {
   ]) assert.ok(servedFromDb(p), p);
 });
 
-test('computing, series, downloads and every write stay on the engine API', () => {
-  for (const p of [
-    '/blocks', `/runs/${ID}/series-catalogue`, `/runs/${ID}?columns=PRICE.close&max_points=1500&events_limit=0&exports=false`,
-    `/runs/${ID}?include_series=false&events_limit=0&exports=true`, '/edges/stats',
-  ]) assert.equal(servedFromDb(p), false, p);
+test('run series, catalogue and download links come from Storage via /api/studio-db', () => {
+  for (const p of [`/runs/${ID}/series-catalogue`, `/runs/${ID}?columns=PRICE.close&max_points=1500&events_limit=0&exports=false`,
+    `/runs/${ID}?include_series=false&events_limit=0&exports=true`]) assert.equal(servedFromDb(p), true, p);
+});
+
+test('computing and every write stay on the engine API', () => {
+  for (const p of ['/blocks', '/edges/stats']) assert.equal(servedFromDb(p), false, p);
   for (const [p, m] of [['/graphs', 'POST'], [`/graphs/${ID}`, 'PUT'], [`/graphs/${ID}`, 'DELETE'], ['/graphs/validate', 'POST'],
     ['/graphs/run-preview', 'POST'], ['/runs', 'POST'], ['/experiments', 'POST'], [`/runs/${ID}/stop`, 'POST'],
     [`/runs/${ID}/indicators?max_points=1500`, 'POST']] as const) assert.equal(servedFromDb(p, m), false, `${m} ${p}`);

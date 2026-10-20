@@ -68,17 +68,19 @@ export async function graphVersion(id: string, version: number) {
 // ------------------------------------------------------------------ runs (runs.py LIST_COLUMNS, jobs.py status_view)
 const RUN_LIST = ['id', 'graph_id', 'graph_version_id', 'experiment_id', 'kind', 'status', 'timeframe',
   'start_date', 'end_date', 'summary', 'artifact_path', 'engine_version', 'graph_hash',
-  'data_fingerprint', 'progress', 'error', 'created_at', 'finished_at'];
+  'data_fingerprint', 'progress', 'error', 'created_at', 'finished_at', 'tags'];
 const runSelect = () => sql`id::text as id, graph_id::text as graph_id, graph_version_id::text as graph_version_id,
   experiment_id::text as experiment_id, kind, status, timeframe, start_date::text as start_date,
   end_date::text as end_date, summary, artifact_path, engine_version, graph_hash, data_fingerprint, progress,
-  error, created_at, finished_at, params, worker_id, heartbeat_at`;
+  error, created_at, finished_at, params, worker_id, heartbeat_at, tags`;
 
 export interface ListQuery {
   graph_id?: string | null;
   kind?: string | null;
   status?: string | null;
   experiment_id?: string | null;
+  /** runs carrying this tag (engine_runs.tags, M13), e.g. BACKTEST_TAG */
+  tag?: string | null;
   limit?: number;
   offset?: number;
 }
@@ -95,8 +97,31 @@ export async function listRuns(q: ListQuery) {
     ${q.experiment_id ? sql`and experiment_id = ${q.experiment_id}::uuid` : sql``}
     ${q.kind ? sql`and kind = ${q.kind}` : sql``}
     ${q.status ? sql`and status = ${q.status}` : sql``}
+    ${q.tag ? sql`and ${q.tag} = any(tags)` : sql``}
     order by created_at desc limit ${limit} offset ${offset}`;
   return rows.map((r) => pick(r, RUN_LIST));
+}
+
+/** The tag that puts a run on the Backtest page. */
+export const BACKTEST_TAG = 'ViewInBacktest';
+
+/** A run's name, kept as its `name:<text>` tag (as the nextv0 reruns); empty removes it. Returns the new tags. */
+export async function setRunName(id: string, name: string): Promise<string[] | null> {
+  if (!isUuid(id)) return null;
+  const clean = name.replace(/\s+/g, ' ').trim().slice(0, 120);
+  const [r] = await sql`update engine_runs set tags = array(select t from unnest(tags) t where t not like 'name:%')
+      || ${clean ? sql`array[${`name:${clean}`}]::text[]` : sql`'{}'::text[]`}
+    where id = ${id}::uuid returning tags`;
+  return r ? (r.tags as string[]) : null;
+}
+
+/** Add or remove one tag on a run (nextv1 only: the engine API does not read tags). Returns the new tags. */
+export async function setRunTag(id: string, tag: string, on: boolean): Promise<string[] | null> {
+  if (!isUuid(id)) return null;
+  const [r] = on
+    ? await sql`update engine_runs set tags = array_append(array_remove(tags, ${tag}), ${tag}) where id = ${id}::uuid returning tags`
+    : await sql`update engine_runs set tags = array_remove(tags, ${tag}) where id = ${id}::uuid returning tags`;
+  return r ? (r.tags as string[]) : null;
 }
 
 async function runRow(id: string) {

@@ -96,6 +96,8 @@ export type EngineNodeData = {
   ui: Record<string, unknown>;
   issues?: Issue[];
   unknownBlock?: boolean;
+  /** run view: settings of this block that the run overrides (the block and the fields are highlighted) */
+  overridden?: string[];
 };
 
 export type EngineNode = Node<EngineNodeData, 'engine'>;

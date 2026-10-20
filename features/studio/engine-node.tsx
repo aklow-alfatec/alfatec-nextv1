@@ -62,12 +62,22 @@ export default function EngineNodeView({ id, data, selected }: NodeProps<EngineN
   const nodeLevel = issues.some((i) => i.level === 'error') ? 'error' : issues.length ? 'warning' : null;
   const portIssues = (port: string) => issues.filter((i) => i.port === port);
   const nodeOnly = issues.filter((i) => !i.port || (!(i.port in data.spec.inputs) && !(i.port in data.spec.outputs)));
+  const overridden = data.overridden?.length ? data.overridden : null;
   const border =
-    nodeLevel === 'error' ? 'border-negative' : nodeLevel === 'warning' ? 'border-warning' : selected ? 'border-accent' : 'border-line-2 bg-bg text-fg';
+    nodeLevel === 'error' ? 'border-negative' : nodeLevel === 'warning' ? 'border-warning' : overridden ? 'border-[#EA7A12]'
+      : selected ? 'border-accent' : 'border-line-2 bg-bg text-fg';
 
   return (
-    <div className={`min-w-[190px] max-w-[260px] rounded-md border-2 bg-surface shadow-sm ${border}`}>
-      <div className="rounded-t bg-raised px-3 py-1.5">
+    <div
+      className={`min-w-[190px] max-w-[260px] rounded-md border-2 bg-surface shadow-sm ${border} ${overridden && selected ? 'ring-2 ring-accent' : ''}`}
+      title={overridden ? `Set by this run: ${overridden.join(', ')}` : undefined}
+    >
+      {overridden && (
+        <div className="rounded-t-sm bg-[#EA7A12] px-3 py-0.5 text-[10px] font-semibold text-white">
+          run setting · {overridden.join(', ')}
+        </div>
+      )}
+      <div className={`${overridden ? '' : 'rounded-t'} bg-raised px-3 py-1.5`}>
         <div className="flex items-center justify-between gap-2">
           <span className="truncate text-xs font-semibold text-fg">{data.spec.label}</span>
           <span className="shrink-0 text-[9px] uppercase tracking-wide text-fg-3">{data.spec.category.split('/').pop()}</span>

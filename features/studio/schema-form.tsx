@@ -160,10 +160,16 @@ export default function SchemaForm({
   schema,
   values,
   onChange,
+  overrides,
+  onResetOverride,
 }: {
   schema: JsonSchema;
   values: Record<string, unknown>;
   onChange: (next: Record<string, unknown>) => void;
+  /** settings a run overrides ({key: the saved graph's value}): highlighted, with the saved value shown */
+  overrides?: Record<string, unknown>;
+  /** run settings mode: put one overridden setting back to the graph's saved value */
+  onResetOverride?: (key: string) => void;
 }) {
   const defs = schema.$defs ?? {};
   const props = Object.entries(schema.properties ?? {});
@@ -191,8 +197,19 @@ export default function SchemaForm({
         // a block can offer a starting value (x-template); reset fills it in instead of clearing the field
         const template = raw['x-template'] ?? f.schema['x-template'];
         const atTemplate = template !== undefined && JSON.stringify(value) === JSON.stringify(template);
+        const over = !!overrides && key in overrides;
         return (
-          <div key={key}>
+          <div key={key} className={over ? '-mx-2 rounded-control border-l-4 border-[#EA7A12] bg-[#EA7A12]/10 px-2 py-1.5' : undefined}>
+            {over && (
+              <div className="mb-0.5 flex items-center justify-between text-[10px] font-semibold uppercase tracking-wider text-[#EA7A12]">
+                set by this run
+                {onResetOverride && (
+                  <button type="button" className="normal-case tracking-normal text-accent hover:underline" onClick={() => onResetOverride(key)}>
+                    ↺ graph value
+                  </button>
+                )}
+              </div>
+            )}
             <div className="flex items-center justify-between">
               <label className="text-xs font-medium text-fg" title={key}>
                 {raw.title ?? key}
@@ -251,6 +268,14 @@ export default function SchemaForm({
             {f.kind === 'json' && <JsonInput value={value} onCommit={(v) => set(key, v)} />}
             {desc && <p className="mt-0.5 text-[10px] text-fg-3">{desc}</p>}
             {hint && !isSet && f.kind !== 'boolean' && f.kind !== 'enum' && <p className="text-[10px] text-fg-3">{hint}</p>}
+            {over && (
+              <details className="mt-1 text-[10px] text-fg-2">
+                <summary className="cursor-pointer">graph&apos;s saved value</summary>
+                <pre className="mt-0.5 max-h-40 overflow-auto whitespace-pre-wrap rounded bg-bg p-1 text-[10px]">
+                  {overrides![key] === undefined ? '(not set: block default)' : JSON.stringify(overrides![key], null, 2)}
+                </pre>
+              </details>
+            )}
           </div>
         );
       })}

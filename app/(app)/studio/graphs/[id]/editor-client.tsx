@@ -6,13 +6,14 @@ const StudioEditor = dynamic(() => import('@/features/studio/studio-editor'), {
   loading: () => <p className="p-6 text-sm text-fg-3">Loading editor...</p>,
 });
 
-export function EditorClient({ id }: { id: string }) {
+export function EditorClient({ id, runId }: { id: string; runId?: string | null }) {
   const isNew = id === 'new';
   return (
     <div className="h-[calc(100vh-3.5rem)] overflow-x-auto">
       <div className="h-full min-w-[1024px]">
         <StudioEditor
           initialGraphId={isNew ? null : id}
+          runId={isNew ? null : runId}
           onSaved={(savedId, created) => {
             // keep the URL in sync without remounting the editor
             if (created) window.history.replaceState(null, '', `/studio/graphs/${savedId}`);

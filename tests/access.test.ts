@@ -18,10 +18,11 @@ test('guest mode applies to superadmins only; the cookie is ignored for everyone
   assert.equal(effectiveRole(null, GUEST_MODE_VALUE), null);
 });
 
-test('blocked paths: Studio, Admin (Symbols list, Trades), Data and the engine / studio data APIs', () => {
-  for (const p of ['/studio', '/studio/graphs', '/studio/runs/abc', '/trades', '/trades/new', '/data', '/symbols', '/symbols/',
+test('blocked paths: Studio, Data, a new trade and the engine / studio data APIs; the Overview section is open', () => {
+  for (const p of ['/studio', '/studio/graphs', '/studio/runs/abc', '/trades/new', '/data',
     '/api/engine/blocks', '/api/studio-db/graphs']) assert.ok(blockedForGuest(p), p);
-  for (const p of ['/', '/grades', '/settings', '/symbols/GOLD', '/symbols/CRM', '/login', '/welcome', '/studiox', '/database'])
+  for (const p of ['/', '/grades', '/settings', '/symbols', '/symbols/', '/symbols/GOLD', '/symbols/CRM', '/trades', '/trades/abc',
+    '/backtest', '/login', '/welcome', '/studiox', '/database'])
     assert.equal(blockedForGuest(p), false, p);
 });
 
