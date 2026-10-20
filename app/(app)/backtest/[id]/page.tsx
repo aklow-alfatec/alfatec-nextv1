@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { Card } from '@/components/ui';
 import type { RunDetail } from '@/features/studio/api';
+import { staticRunChart, type StaticChart } from '@/lib/backtest-chart';
 import { BACKTEST_TAG, getGraph, runDetail } from '@/lib/studio-db';
 import { currentViewer } from '@/lib/viewer';
 import { BacktestResult } from './backtest-result';
@@ -17,6 +18,13 @@ export default async function BacktestRunPage({ params }: { params: Promise<{ id
   if (!run || !(run.tags ?? []).includes(BACKTEST_TAG)) notFound();
   const graph = await getGraph(run.graph_id);
   const full = !(viewer?.guest ?? true);
+  // each strategy's chart as the graph's saved layout shows it, built here (no picker; parts masked for guests).
+  // Storage unreadable -> null, and the results fall back to the equity curve
+  const strategies = run.status === 'done' ? run.summary?.strategies ?? [] : [];
+  const meta = (graph?.graph as { meta?: { chart?: unknown } } | undefined)?.meta;
+  const charts: (StaticChart | null)[] = await Promise.all(
+    strategies.map((r) => staticRunChart(id, meta?.chart, r, !full).catch(() => null)),
+  );
   const name = run.tags?.find((t) => t.startsWith('name:'))?.slice(5);
   return (
     <div className="space-y-4 p-4 md:p-6">
@@ -31,7 +39,7 @@ export default async function BacktestRunPage({ params }: { params: Promise<{ id
       {run.status !== 'done' ? (
         <Card><p className="text-sm text-fg-2">This backtest has not finished ({run.status}).</p></Card>
       ) : (
-        <BacktestResult params={run.params} strategies={run.summary?.strategies ?? []} />
+        <BacktestResult params={run.params} strategies={strategies} charts={charts} />
       )}
     </div>
   );
