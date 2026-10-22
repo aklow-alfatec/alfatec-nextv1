@@ -339,6 +339,12 @@
    "out": "float"
   }
  },
+ "math.hold": {
+  "label": "Hold last value",
+  "outputs": {
+   "out": "float"
+  }
+ },
  "math.log": {
   "label": "Natural log",
   "outputs": {
