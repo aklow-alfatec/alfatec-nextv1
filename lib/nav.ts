@@ -5,7 +5,7 @@ export type NavGroup = { title?: string; items: NavItem[]; full?: boolean };
 
 export const NAV: NavGroup[] = [
   {
-    title: 'Overview',
+    title: 'REVA.I.S',
     items: [
       { label: 'Dashboard', href: '/' },
       { label: 'Grades', href: '/grades' },
