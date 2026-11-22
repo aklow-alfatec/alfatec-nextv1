@@ -1,6 +1,7 @@
 'use client';
 import { useState, useTransition } from 'react';
 import { Button, GradeChip, PartScoreChip, ReadingTag } from '@/components/ui';
+import { ChannelButton } from '@/features/charts/channel-button';
 import { dayDetailsAction, type DayDetails } from './actions';
 
 const fmtDay = (d: string) => new Date(`${d}T00:00:00Z`).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'UTC' });
@@ -69,7 +70,9 @@ export function DayDetailsDialog({ state }: { state: ReturnType<typeof useDayDet
                   <tbody>
                     {details.parts.map((p) => (
                       <tr key={p.node} className="border-t border-line">
-                        <td className="py-1.5 font-medium">{p.input ?? p.node.replace(/_GRADE$/, '')}</td>
+                        <td className="py-1.5 font-medium">
+                          {p.channel ? <ChannelButton symbol={open.symbol} node={p.node} label={p.input ?? p.node.replace(/_GRADE$/, '')} /> : p.input ?? p.node.replace(/_GRADE$/, '')}
+                        </td>
                         {!details.masked && <td className="num py-1.5 text-right">{fmtNum(p.value)}</td>}
                         <td className="py-1.5 text-center"><PartScoreChip score={p.score} /></td>
                         {!details.masked && <td className="py-1.5 pl-3 text-xs text-fg-2">{p.rule}</td>}

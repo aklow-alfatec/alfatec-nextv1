@@ -89,12 +89,15 @@ export interface MultiPaneChartProps {
   stretch?: Partial<Record<PaneKind, number>>;
   /** part-score heatmap in its own pane at the bottom, on the same time axis (features/charts/heatmap.ts) */
   heatmap?: HeatmapData | null;
+  /** makes a heatmap row's name clickable (e.g. to open its channel chart); rows with false stay plain text */
+  onHeatRow?: (row: number) => void;
+  heatRowEnabled?: boolean[];
   className?: string;
 }
 
 /** Price, grade %, 0-100, part-score, signal, other and equity panes on one time axis (lightweight-charts):
  *  drag to pan, wheel / pinch to zoom, double-click to reset, one crosshair and readout across panes. */
-export function MultiPaneChart({ series, equity, trades, titles, extraRows, stretch, heatmap, className }: MultiPaneChartProps) {
+export function MultiPaneChart({ series, equity, trades, titles, extraRows, stretch, heatmap, onHeatRow, heatRowEnabled, className }: MultiPaneChartProps) {
   const host = useRef<HTMLDivElement>(null);
   const chartRef = useRef<IChartApi | null>(null);
   const rangeRef = useRef<{ from: Time; to: Time } | null>(null);
@@ -370,15 +373,28 @@ export function MultiPaneChart({ series, equity, trades, titles, extraRows, stre
               )}
             </span>
           ))}
-          {heatBox && heatmap && heatmap.rows.map((name, r) => (
-            <span
-              key={`heat-${r}`}
-              className="absolute left-1 rounded-sm bg-surface/90 px-1 py-px text-[10px] font-medium leading-none text-fg shadow-sm"
-              style={{ top: heatBox.top + ((r + 0.5) * heatBox.height) / heatRows - 5 }}
-            >
-              {name}
-            </span>
-          ))}
+          {heatBox && heatmap && heatmap.rows.map((name, r) =>
+            onHeatRow && heatRowEnabled?.[r] ? (
+              <button
+                key={`heat-${r}`}
+                type="button"
+                onClick={() => onHeatRow(r)}
+                title={`Open the ${name} channel chart`}
+                className="pointer-events-auto absolute left-1 rounded-sm bg-surface/90 px-1 py-px text-[10px] font-medium leading-none text-fg underline decoration-dotted underline-offset-2 shadow-sm hover:text-accent"
+                style={{ top: heatBox.top + ((r + 0.5) * heatBox.height) / heatRows - 5 }}
+              >
+                {name}
+              </button>
+            ) : (
+              <span
+                key={`heat-${r}`}
+                className="absolute left-1 rounded-sm bg-surface/90 px-1 py-px text-[10px] font-medium leading-none text-fg shadow-sm"
+                style={{ top: heatBox.top + ((r + 0.5) * heatBox.height) / heatRows - 5 }}
+              >
+                {name}
+              </span>
+            ),
+          )}
         </div>
         {readout && (
           <div className="pointer-events-none absolute right-16 top-6 z-10 min-w-40 rounded-card border border-line bg-surface/95 px-2 py-1.5 text-[11.5px] shadow">

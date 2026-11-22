@@ -4,6 +4,9 @@ import sql from '@/lib/db';
 import { activePipelines, fridays, lastFinalFriday, ongoingAlerts, weeklyGrades } from '@/lib/grades';
 import { displayTags, groupBySection } from '@/lib/sections';
 import { currentViewer } from '@/lib/viewer';
+import { limitBreaches } from '@/lib/limit-alerts';
+import { isAdminRole } from '@/lib/session-user';
+import { LimitBreach } from './limit-breach';
 import { OngoingAlert } from './ongoing-alert';
 
 export const dynamic = 'force-dynamic';
@@ -60,10 +63,12 @@ export default async function OverviewPage({ searchParams }: { searchParams: Pro
   const symbols = pipes.map((p) => p.symbol);
   const weeks = fridays(week, 12);
   const prev = weeks[weeks.length - 2];
-  const guest = (await currentViewer())?.guest ?? true;
+  const viewer = await currentViewer();
+  const guest = viewer?.guest ?? true;
+  const admin = isAdminRole(viewer?.role);
   // the guest view shows grades only: no data health or Studio activity (not even queried)
   // the guest view never sees component names, so no alerts for it (not even queried)
-  const [grid, health, feed, alerts] = await Promise.all([weeklyGrades(symbols, weeks), guest ? null : dataHealth(symbols), guest ? [] : recent(), guest ? [] : ongoingAlerts(symbols, prev, week)]);
+  const [grid, health, feed, alerts, breaches] = await Promise.all([weeklyGrades(symbols, weeks), guest ? null : dataHealth(symbols), guest ? [] : recent(), guest ? [] : ongoingAlerts(symbols, prev, week), guest ? [] : limitBreaches(week)]);
   const titles = new Map(pipes.map((p) => [p.symbol, p.title]));
 
   const rows = pipes.map((p) => {
@@ -109,6 +114,8 @@ export default async function OverviewPage({ searchParams }: { searchParams: Pro
           items={alerts.map((a) => ({ symbol: a.symbol, title: titles.get(a.symbol) ?? a.symbol, part: a.node.replace(/_GRADE$/, ''), from: a.from as number, to: a.to as number, delta: a.delta }))}
         />
       )}
+
+      {breaches.length > 0 && <LimitBreach items={breaches} date={week} titles={Object.fromEntries(titles)} canOpenChannel={admin} />}
 
       <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
         {[

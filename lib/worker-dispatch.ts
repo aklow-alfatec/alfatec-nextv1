@@ -12,10 +12,15 @@
  * Without the token nothing is started (local development: the local worker picks the job up).
  */
 export async function startWorker(): Promise<{ started: boolean; detail: string }> {
+  return dispatchWorkflow(process.env.GITHUB_WORKER_WORKFLOW || 'backtest-worker.yml');
+}
+
+/** Starts a backend workflow with the same token, e.g. limit-alerts.yml (re-evaluates the limit-breach alerts
+ *  after the range is changed in Settings). */
+export async function dispatchWorkflow(workflow: string): Promise<{ started: boolean; detail: string }> {
   const token = process.env.GITHUB_DISPATCH_TOKEN;
   if (!token) return { started: false, detail: 'GITHUB_DISPATCH_TOKEN not set' };
   const repo = process.env.GITHUB_WORKER_REPO || 'aklow-alfatec/alfatec-backend';
-  const workflow = process.env.GITHUB_WORKER_WORKFLOW || 'backtest-worker.yml';
   const ref = process.env.GITHUB_WORKER_REF || 'main';
   try {
     const res = await fetch(`https://api.github.com/repos/${repo}/actions/workflows/${encodeURIComponent(workflow)}/dispatches`, {
@@ -30,7 +35,7 @@ export async function startWorker(): Promise<{ started: boolean; detail: string 
       cache: 'no-store',
     });
     // 204: started. A second start while one is running just waits for it (the workflow's concurrency group).
-    return res.status === 204 ? { started: true, detail: 'worker started' } : { started: false, detail: `GitHub ${res.status}: ${(await res.text()).slice(0, 200)}` };
+    return res.status === 204 ? { started: true, detail: `${workflow} started` } : { started: false, detail: `GitHub ${res.status}: ${(await res.text()).slice(0, 200)}` };
   } catch (e) {
     return { started: false, detail: (e as Error).message };
   }

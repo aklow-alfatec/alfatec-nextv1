@@ -10,6 +10,10 @@ import { emailGuestLink, inviteGuest, removeGuest } from '@/lib/guests';
 import { mailConfigured, passwordChangedEmail } from '@/lib/mailer';
 import { passwordProblem } from '@/lib/passwords';
 import { isAdminRole, requireAdmin, sessionUser } from '@/lib/session-user';
+import { parsePercent } from '@/lib/limit-alert-rules';
+import { saveLimitAlertSettings, savePipelineAlertRange } from '@/lib/limit-alerts';
+import { currentViewer } from '@/lib/viewer';
+import { dispatchWorkflow } from '@/lib/worker-dispatch';
 
 const ROLES: string[] = [...ROLE_LIST];
 
@@ -109,6 +113,57 @@ export async function changePasswordAction(current: string, next: string, confir
     await sql`UPDATE users SET password = ${hash}, password_changed_at = ${new Date()} WHERE id::text = ${me.id}`;
     if (mailConfigured() && me.email) await passwordChangedEmail(me.email).catch(() => undefined);
     return { ok: true, message: 'Password changed. Sign in with your new password.' };
+  } catch (e) {
+    return { ok: false, error: (e as Error).message };
+  }
+}
+
+// ---------------------------------------------------------------- limit-breach alerts (any full account)
+
+async function requireFullAccount() {
+  const v = await currentViewer();
+  if (!v) throw new Error('Not signed in');
+  if (v.guest) throw new Error('Not available on this account');
+  return v;
+}
+
+/** After a range change: re-evaluate every stored Friday (backend workflow limit-alerts.yml, about a minute). */
+async function reEvaluate(): Promise<string> {
+  const r = await dispatchWorkflow('limit-alerts.yml');
+  return r.started
+    ? 'Saved. The alerts are being re-evaluated with the new range (about a minute).'
+    : `Saved, but the re-evaluation did not start (${r.detail}). The next Friday job uses the new range for its weeks; older weeks change after scripts.backfill_limit_alerts --apply.`;
+}
+
+export async function saveLimitAlertAction(rangePct: string, checkPct: string): Promise<Result> {
+  try {
+    const v = await requireFullAccount();
+    const range = parsePercent(rangePct);
+    const check = parsePercent(checkPct);
+    if (typeof range !== 'number') throw new Error('Alert range: a percentage above 0, e.g. 20');
+    if (typeof check !== 'number') throw new Error('Check-data level: a percentage above 0, e.g. 50');
+    if (check <= range) throw new Error('The check-data level must be above the alert range');
+    await saveLimitAlertSettings(range, check, v.email ?? v.name ?? 'unknown');
+    const message = await reEvaluate();
+    revalidatePath('/settings');
+    revalidatePath('/');
+    return { ok: true, message };
+  } catch (e) {
+    return { ok: false, error: (e as Error).message };
+  }
+}
+
+/** Per-pipeline override; an empty value goes back to the global range. */
+export async function savePipelineAlertRangeAction(pipeline: string, rangePct: string): Promise<Result> {
+  try {
+    await requireFullAccount();
+    const range = parsePercent(rangePct);
+    if (range === null) throw new Error('A percentage above 0, e.g. 30, or empty for the global range');
+    await savePipelineAlertRange(pipeline, range === '' ? null : range);
+    const message = await reEvaluate();
+    revalidatePath('/settings');
+    revalidatePath('/');
+    return { ok: true, message };
   } catch (e) {
     return { ok: false, error: (e as Error).message };
   }

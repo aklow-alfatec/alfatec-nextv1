@@ -6,7 +6,9 @@ import { listGuests } from '@/lib/guests';
 import { isAdminRole } from '@/lib/session-user';
 import { currentViewer } from '@/lib/viewer';
 import { mailConfigured } from '@/lib/mailer';
+import { limitAlertSettings } from '@/lib/limit-alerts';
 import { GuestsCard } from './guests-card';
+import { LimitAlertCard } from './limit-alert-card';
 import { PasswordCard } from './password-card';
 import { UsersTable } from './users-table';
 
@@ -32,10 +34,11 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
   // decided on the effective role, so a superadmin in guest mode sees what a guest sees
   const admin = isAdminRole(user?.role);
   const superadmin = isSuperadmin(user?.role);
-  const [health, users, guests] = await Promise.all([
+  const [health, users, guests, limits] = await Promise.all([
     guest ? null : engineHealth(check === '1'),
     admin ? listUsers() : [],
     superadmin ? listGuests() : [],
+    guest ? null : limitAlertSettings(),
   ]);
   return (
     <div className="space-y-4 p-4 md:p-6">
@@ -62,10 +65,11 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
         )}
         {!guest && (
           <Card title="Email alerts">
-            <p className="text-sm text-fg-2">Grade-change emails go to every user after the Friday job and after data is entered by hand (unless unticked there).</p>
+            <p className="text-sm text-fg-2">Grade-change emails go to every user after the Friday job and after data is entered by hand (unless unticked there). The Friday email also lists the week&apos;s limit breaches.</p>
           </Card>
         )}
       </div>
+      {limits && <LimitAlertCard settings={limits} />}
       {superadmin && <GuestsCard guests={guests} mailOk={mailConfigured()} />}
       {admin && (
         <Card title={`Users (${users.length})`}>

@@ -3,6 +3,7 @@ import { useCallback, useMemo } from 'react';
 import { MultiPaneChart, type ReadoutRow } from '@/features/charts/chart';
 import type { PlotSeries } from '@/features/charts/data';
 import type { HeatmapData } from '@/features/charts/heatmap';
+import { openChannel } from '@/lib/channel-link';
 import { gradeZone, readingInfo } from '@/lib/grade-zones';
 
 /** price and grade panes the same height (the chart's total height is unchanged) */
@@ -14,11 +15,14 @@ const sec = (d: string) => Date.parse(`${d}T00:00:00Z`) / 1000;
  *  grade % (lower pane, flipped with nextv0's zones), drag to pan, scroll to zoom, one crosshair. The readout adds
  *  the day's change, the grade's zone and the reading of the week shown. The earlier SVG chart and a lighter
  *  crosshair option for it are described in doc/symbol-chart-options.md. */
-export function SymbolChart({ prices, weekly, heatmap }: {
+export function SymbolChart({ symbol, prices, weekly, heatmap, channelNodes }: {
+  symbol: string;
   prices: { date: string; close: number }[];
   weekly: { date: string; grade: number | null; reading: number | null }[];
   /** part scores per Friday, drawn as a heatmap pane under the grade (names already masked for guests) */
   heatmap?: HeatmapData | null;
+  /** per heatmap row, the grader node whose channel chart its name opens (null: plain text). Admins only. */
+  channelNodes?: (string | null)[];
 }) {
   const series = useMemo<PlotSeries[]>(() => {
     const wk = weekly.filter((w) => w.grade !== null);
@@ -56,6 +60,8 @@ export function SymbolChart({ prices, weekly, heatmap }: {
       titles={{ price: 'Price · daily close', grade: 'Grade % · each Friday, undervalued at the bottom' }}
       stretch={EQUAL_PANES}
       heatmap={heatmap}
+      onHeatRow={channelNodes ? (r) => channelNodes[r] && openChannel(symbol, channelNodes[r] as string) : undefined}
+      heatRowEnabled={channelNodes?.map(Boolean)}
     />
   );
 }

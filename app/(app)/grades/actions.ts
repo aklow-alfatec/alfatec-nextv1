@@ -3,6 +3,8 @@
 import { activePipelineFor, components, weeklyPayloads } from '@/lib/symbols';
 import { maskParts } from '@/lib/access';
 import { currentViewer } from '@/lib/viewer';
+import { channelNodes } from '@/lib/channel-data';
+import { isAdminRole } from '@/lib/session-user';
 
 export interface DayPart {
   node: string;
@@ -10,6 +12,8 @@ export interface DayPart {
   value: number | null;
   score: number | null;
   rule: string;
+  /** opens a channel chart (docs/featureAsk-002.md): set for admin / superadmin only */
+  channel?: boolean;
 }
 
 export interface DayDetails {
@@ -34,6 +38,7 @@ export async function dayDetailsAction(symbol: string, friday: string): Promise<
   const [pipe, weeks] = await Promise.all([activePipelineFor(symbol), weeklyPayloads(symbol, [friday])]);
   const w = weeks[friday];
   const parts = pipe ? components(pipe.nodes) : [];
+  const channels = pipe && !viewer.guest && isAdminRole(viewer.role) ? channelNodes(pipe.nodes) : new Set<string>();
   return {
     symbol,
     pipeline: viewer.guest ? null : pipe?.name ?? null,
@@ -51,6 +56,7 @@ export async function dayDetailsAction(symbol: string, friday: string): Promise<
           value: p.input ? num(w?.nodes?.[p.input]) : null,
           score: g && typeof g === 'object' ? num((g as Record<string, unknown>).grade) : num(g),
           rule: p.describe,
+          ...(channels.has(p.node) ? { channel: true } : {}),
         };
       });
       // masked on the server: a guest's response never carries the real names, inputs, values or rules

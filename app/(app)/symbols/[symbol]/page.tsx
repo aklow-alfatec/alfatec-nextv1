@@ -6,6 +6,9 @@ import { activePipelineFor, assetInfo, components, firstGradeDate, graphForPipel
 import { SymbolChart } from './symbol-chart';
 import { maskedName } from '@/lib/access';
 import { currentViewer } from '@/lib/viewer';
+import { ChannelButton } from '@/features/charts/channel-button';
+import { channelNodes } from '@/lib/channel-data';
+import { isAdminRole } from '@/lib/session-user';
 
 export const dynamic = 'force-dynamic';
 
@@ -31,7 +34,10 @@ export default async function SymbolPage({ params, searchParams }: { params: Pro
   const priceStart = range === 'all' ? (gradedFrom ? weeks[0] : '1900-01-01') : weeks[0];
 
   // guest view: no grade breakdown, runs, Studio links or data sources; part names masked as Indicator n
-  const guest = (await currentViewer())?.guest ?? true;
+  const viewer = await currentViewer();
+  const guest = viewer?.guest ?? true;
+  // the channel chart (docs/featureAsk-002.md) is for admin and superadmin only (the effective role: not in guest mode)
+  const admin = isAdminRole(viewer?.role);
   const [asset, pipe, px, weekly, heat, runs, year] = await Promise.all([
     assetInfo(symbol),
     activePipelineFor(symbol),
@@ -44,6 +50,7 @@ export default async function SymbolPage({ params, searchParams }: { params: Pro
   if (!asset && !pipe && px.length === 0) notFound();
   const graph = pipe && !guest ? await graphForPipeline(pipe.name) : null;
   const parts = pipe ? components(pipe.nodes) : [];
+  const channels = admin && pipe ? channelNodes(pipe.nodes) : new Set<string>();
 
   const cur = heat[end];
   const prevW = heatWeeks[heatWeeks.length - 2];
@@ -122,6 +129,8 @@ export default async function SymbolPage({ params, searchParams }: { params: Pro
           prices={px}
           weekly={weeks.map((w) => ({ date: w, grade: weekly[w]?.grade ?? null, reading: weekly[w]?.reading ?? null }))}
           heatmap={heatmap}
+          symbol={symbol}
+          channelNodes={admin && heatmap ? parts.map((c) => (channels.has(c.node) ? c.node : null)) : undefined}
         />
       </Card>
 
@@ -143,7 +152,9 @@ export default async function SymbolPage({ params, searchParams }: { params: Pro
                   const g0 = nodeGrade(prev?.nodes, c.node);
                   return (
                     <tr key={c.node} className="border-t border-line">
-                      <td className="py-1.5 font-medium">{c.node.replace(/_GRADE$/, '')}</td>
+                      <td className="py-1.5 font-medium">
+                        {channels.has(c.node) ? <ChannelButton symbol={symbol} node={c.node} label={c.node.replace(/_GRADE$/, '')} /> : c.node.replace(/_GRADE$/, '')}
+                      </td>
                       <td className="py-1.5 text-xs text-fg-2">{c.describe}</td>
                       <td className="num py-1.5 text-right">{fmt(nodeVal(cur?.nodes, c.input) ?? nodeVal(cur?.nodes, c.node))}</td>
                       <td className="num py-1.5 text-right">
