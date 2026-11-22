@@ -27,7 +27,7 @@ export default async function BacktestPage() {
             {full && <> Tick <b>Backtest</b> on a run in <Link href="/studio/runs" className="text-accent hover:underline">Runs</Link> to show it here.</>}
           </p>
         ) : (
-          <RunsTable rows={rows as unknown as RunRow[]} graphNames={names} canTag={full} linkRuns onlyTagged runHrefBase="/backtest/" />
+          <RunsTable rows={rows as unknown as RunRow[]} graphNames={names} canTag={false} linkRuns onlyTagged runHrefBase="/backtest/" />
         )}
       </Card>
     </div>

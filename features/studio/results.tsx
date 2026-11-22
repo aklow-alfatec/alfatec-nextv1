@@ -118,7 +118,7 @@ const ROWS: [string, string, (v: number | null | undefined) => string][] = [
   ['Time in market', 'exposure', (v) => pct(v, 0)],
 ];
 
-export function MetricsTable({ report }: { report: StrategyReport }) {
+export function MetricsTable({ report, openTradeDdMax }: { report: StrategyReport; openTradeDdMax?: number | null }) {
   const m = report.metrics as Record<string, number>;
   const b = (report.benchmark ?? null) as Record<string, number> | null;
   const ts = report.trade_stats as Record<string, number> | null;
@@ -149,6 +149,12 @@ export function MetricsTable({ report }: { report: StrategyReport }) {
           <tr className="border-t border-line"><td className="py-1 text-fg-2">Profit factor</td><td className="num py-1 text-right">{ts ? (Number.isFinite(ts.profit_factor) ? num(ts.profit_factor) : 'no losses') : '-'}</td></tr>
           <tr className="border-t border-line"><td className="py-1 text-fg-2">Average trade</td><td className="num py-1 text-right">{ts ? money(ts.avg_trade) : '-'}</td></tr>
           <tr className="border-t border-line"><td className="py-1 text-fg-2">Average win / loss</td><td className="num py-1 text-right">{ts ? `${money(ts.avg_win)} / ${money(ts.avg_loss)}` : '-'}</td></tr>
+          {openTradeDdMax !== undefined && (
+            <tr className="border-t border-line" title="The worst fall of a position below its entry price while it was open (close-marked)">
+              <td className="py-1 text-fg-2">Max open-trade drawdown</td>
+              <td className="num py-1 text-right">{openTradeDdMax === null ? '-' : `${openTradeDdMax.toFixed(1)}%`}</td>
+            </tr>
+          )}
           <tr className="border-t border-line"><td className="py-1 text-fg-2">Open at end</td><td className="num py-1 text-right">{report.open_position ? `${num(report.open_position, 4)} units` : 'flat'}</td></tr>
         </tbody>
       </table>
@@ -213,7 +219,7 @@ export function TradesTable({ trades, limit = 200 }: { trades: TradeRow[]; limit
 }
 
 /** Full report for one strategy node: chart, metrics, trades. `chart` replaces the equity chart (the indicator chart). */
-export function StrategyResult({ report, chartHeight, chart }: { report: StrategyReport; chartHeight?: number; chart?: React.ReactNode }) {
+export function StrategyResult({ report, chartHeight, chart, openTradeDdMax }: { report: StrategyReport; chartHeight?: number; chart?: React.ReactNode; openTradeDdMax?: number | null }) {
   const [tab, setTab] = useState<'chart' | 'trades'>('chart');
   return (
     <div className="space-y-3">
@@ -231,7 +237,7 @@ export function StrategyResult({ report, chartHeight, chart }: { report: Strateg
       {tab === 'chart' ? (
         <>
           {chart ?? <EquityChart curve={report.curve} height={chartHeight} />}
-          <MetricsTable report={report} />
+          <MetricsTable report={report} openTradeDdMax={openTradeDdMax} />
         </>
       ) : (
         <TradesTable trades={report.trades} />

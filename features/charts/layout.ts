@@ -2,8 +2,9 @@
  *  Pure (no browser or server imports) so node --test can run it. The layout is stored in graph.meta.chart. */
 import type { SeriesInfo } from '../studio/api';
 
-export type PaneKind = 'price' | 'grade' | 'pct' | 'score' | 'bool' | 'other' | 'equity';
-export const PANE_ORDER: PaneKind[] = ['price', 'grade', 'pct', 'score', 'bool', 'other', 'equity'];
+/** 'drawdown' is drawn by the chart under 'equity' (in %), not chosen in a layout. */
+export type PaneKind = 'price' | 'grade' | 'pct' | 'score' | 'bool' | 'other' | 'equity' | 'drawdown';
+export const PANE_ORDER: PaneKind[] = ['price', 'grade', 'pct', 'score', 'bool', 'other', 'equity', 'drawdown'];
 export const PANE_TITLES: Record<PaneKind, string> = {
   price: 'Price',
   grade: 'Daily grade % (undervalued at the bottom)',
@@ -11,10 +12,11 @@ export const PANE_TITLES: Record<PaneKind, string> = {
   score: 'Part scores (5 = undervalued, 1 = overvalued)',
   bool: 'Signals',
   other: 'Other',
-  equity: 'Equity and drawdown',
+  equity: 'Equity',
+  drawdown: 'Drawdown %',
 };
 /** Short pane names for the picker's pane menu. */
-export const PANE_NAMES: Record<PaneKind, string> = { price: 'Price', grade: 'Grade %', pct: '0-100', score: 'Scores', bool: 'Signal', other: 'Other', equity: 'Equity' };
+export const PANE_NAMES: Record<PaneKind, string> = { price: 'Price', grade: 'Grade %', pct: '0-100', score: 'Scores', bool: 'Signal', other: 'Other', equity: 'Equity', drawdown: 'Drawdown' };
 
 /** An indicator the graph does not contain, computed for the run's period (POST /runs/{id}/indicators). */
 export interface IndicatorSpec {

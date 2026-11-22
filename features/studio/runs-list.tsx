@@ -2,7 +2,7 @@
 import Link from 'next/link';
 import { useCallback, useEffect, useState, type ReactNode } from 'react';
 import { Badge, Button, Card, Table, TBody, TD, TH, THead, TR } from '@/components/ui';
-import { setBacktestAction } from '@/app/(app)/studio/runs/actions';
+import { setBacktestAction, setBacktestManyAction } from '@/app/(app)/studio/runs/actions';
 import { engineApi, type RunRow } from './api';
 import { stats } from './run-stats';
 
@@ -12,7 +12,7 @@ export const BACKTEST_TAG = 'ViewInBacktest';
 const pct = (v: unknown, d = 1) => (typeof v === 'number' && Number.isFinite(v) ? `${(v * 100).toFixed(d)}%` : '-');
 const num = (v: unknown) => (typeof v === 'number' && Number.isFinite(v) ? v.toFixed(2) : '-');
 
-type SortKey = 'started' | 'graph' | 'period' | 'status' | 'total_return' | 'cagr' | 'bh_cagr' | 'max_drawdown' | 'sharpe' | 'backtest';
+type SortKey = 'started' | 'graph' | 'period' | 'status' | 'total_return' | 'cagr' | 'bh_cagr' | 'max_open_trade_drawdown' | 'avg_open_trade_drawdown' | 'sharpe' | 'backtest';
 const finite = (v: unknown) => (typeof v === 'number' && Number.isFinite(v) ? v : null);
 
 /** The value a column sorts on; numbers without a value (failed or unfinished runs) go last either way. */
@@ -69,8 +69,8 @@ export function RunsTable({ rows, graphNames, canTag, linkRuns, onlyTagged, runH
   const sortBy = (key: SortKey) =>
     // a new column starts high to low for numbers and dates, A to Z for names
     setSort((cur) => (cur.key === key ? { key, dir: cur.dir === 'asc' ? 'desc' : 'asc' } : { key, dir: key === 'graph' || key === 'status' || key === 'period' ? 'asc' : 'desc' }));
-  const head = (key: SortKey, label: string, className?: string) => (
-    <TH className={className} aria-sort={sort.key === key ? (sort.dir === 'asc' ? 'ascending' : 'descending') : 'none'}>
+  const head = (key: SortKey, label: string, className?: string, tip?: string) => (
+    <TH className={className} title={tip} aria-sort={sort.key === key ? (sort.dir === 'asc' ? 'ascending' : 'descending') : 'none'}>
       <button type="button" onClick={() => sortBy(key)} className="whitespace-nowrap hover:text-fg">
         {label}{sort.key === key ? (sort.dir === 'desc' ? ' ↓' : ' ↑') : ''}
       </button>
@@ -86,6 +86,15 @@ export function RunsTable({ rows, graphNames, canTag, linkRuns, onlyTagged, runH
     setTags((t) => ({ ...t, [r.id]: res.tags }));
   };
 
+  const toggleAll = async (on: boolean) => {
+    setBusy('all');
+    const res = await setBacktestManyAction(shown.map((r) => r.id), on);
+    setBusy(null);
+    if (!res.ok) return setError(res.error);
+    setError('');
+    setTags((t) => ({ ...t, ...res.tags }));
+  };
+
   const shown = (onlyTagged ? rows.filter((r) => tagsOf(r).includes(BACKTEST_TAG)) : rows)
     .filter(matches)
     .map((r) => ({ r, v: sortValue(r, sort.key, graphNames) }))
@@ -99,7 +108,7 @@ export function RunsTable({ rows, graphNames, canTag, linkRuns, onlyTagged, runH
   const finished = shown.filter((r) => r.status === 'done');
   const col = (key: string) => stats(finished.map((r) => (r.summary as Record<string, unknown> | null)?.[key] as number | null), 0.0001);
   const colStats = words.length && finished.length
-    ? { total_return: col('total_return'), cagr: col('cagr'), max_drawdown: col('max_drawdown'), sharpe: col('sharpe') }
+    ? { total_return: col('total_return'), cagr: col('cagr'), max_open_trade_drawdown: col('max_open_trade_drawdown'), avg_open_trade_drawdown: col('avg_open_trade_drawdown'), sharpe: col('sharpe') }
     : null;
 
   return (
@@ -115,6 +124,21 @@ export function RunsTable({ rows, graphNames, canTag, linkRuns, onlyTagged, runH
           aria-label="Search runs by graph name, run name or tag"
         />
         {words.length > 0 && <span className="text-xs text-fg-3">{shown.length} of {rows.length}</span>}
+        {canTag && (
+          <span className="ml-auto flex gap-2" title="Applies to the runs the search and graph filter show">
+            {([true, false] as const).map((on) => (
+              <button
+                key={String(on)}
+                type="button"
+                disabled={!shown.length || busy === 'all'}
+                onClick={() => void toggleAll(on)}
+                className="rounded-control border border-line-2 px-2 py-1 text-xs text-fg-2 hover:bg-raised hover:text-fg disabled:opacity-50"
+              >
+                {on ? 'Select' : 'Unselect'} all visible ({shown.length})
+              </button>
+            ))}
+          </span>
+        )}
       </div>
       <Table>
         <THead>
@@ -127,7 +151,8 @@ export function RunsTable({ rows, graphNames, canTag, linkRuns, onlyTagged, runH
               <th className="num px-3 py-0.5 text-right font-normal text-fg">{statPct(colStats.total_return[k], 1)}</th>
               <th className="num px-3 py-0.5 text-right font-normal text-fg">{statPct(colStats.cagr[k], 2)}</th>
               <th />
-              <th className="num px-3 py-0.5 text-right font-normal text-fg">{statPct(colStats.max_drawdown[k], 1)}</th>
+              <th className="num px-3 py-0.5 text-right font-normal text-fg">{statPct(colStats.max_open_trade_drawdown[k], 1)}</th>
+              <th className="num px-3 py-0.5 text-right font-normal text-fg">{statPct(colStats.avg_open_trade_drawdown[k], 2)}</th>
               <th className="num px-3 py-0.5 text-right font-normal text-fg">{colStats.sharpe[k] === null ? '–' : colStats.sharpe[k]!.toFixed(2)}</th>
               {canTag && <th />}
             </tr>
@@ -140,7 +165,8 @@ export function RunsTable({ rows, graphNames, canTag, linkRuns, onlyTagged, runH
             {head('total_return', 'Total return', 'text-right')}
             {head('cagr', 'CAGR', 'text-right')}
             {head('bh_cagr', 'Buy and hold CAGR', 'text-right')}
-            {head('max_drawdown', 'Max drawdown', 'text-right')}
+            {head('max_open_trade_drawdown', 'Max open-trade drawdown', 'text-right', 'The worst fall of any position below its entry price, over the whole run')}
+            {head('avg_open_trade_drawdown', 'Avg of trade max drawdowns', 'text-right', 'The worst fall of each trade below its entry price (0 if it never fell below), averaged over all trades')}
             {head('sharpe', 'Sharpe', 'text-right')}
             {canTag && head('backtest', 'Backtest', 'text-center')}
           </TR>
@@ -171,7 +197,8 @@ export function RunsTable({ rows, graphNames, canTag, linkRuns, onlyTagged, runH
                 <TD className="num text-right">{pct(s.total_return, 1)}</TD>
                 <TD className="num text-right">{pct(s.cagr, 2)}</TD>
                 <TD className="num text-right text-fg-2">{pct(b.cagr, 2)}</TD>
-                <TD className="num text-right">{pct(s.max_drawdown, 1)}</TD>
+                <TD className="num text-right">{pct(s.max_open_trade_drawdown, 1)}</TD>
+                <TD className="num text-right">{pct(s.avg_open_trade_drawdown, 2)}</TD>
                 <TD className="num text-right">{num(s.sharpe)}</TD>
                 {canTag && (
                   <TD className="text-center">

@@ -45,6 +45,17 @@ export function equityFromReport(r: StrategyReport | undefined): EquityData | nu
   return { t: r.curve.index.map(toSeconds), equity: r.curve.equity, benchmark: r.curve.benchmark, drawdown: r.curve.drawdown };
 }
 
+/** The position still open at the end of the run (the report lists closed trades only): from the strategy's position
+ *  series, the start of the last stretch with the same sign. Null when flat at the end. */
+export function openTradeFromPosition(t: number[], pos: (number | null)[]): TradeMark | null {
+  let i = Math.min(t.length, pos.length) - 1;
+  const last = i >= 0 ? pos[i] : null;
+  if (last === null || last === undefined || !Number.isFinite(last) || last === 0) return null;
+  const sign = Math.sign(last);
+  while (i > 0 && Math.sign(pos[i - 1] ?? 0) === sign) i--;
+  return { entry: t[i], exit: t[i], side: sign > 0 ? 'long' : 'short', ret: null, open: true };
+}
+
 export function tradesFromReport(r: StrategyReport | undefined): TradeMark[] {
   return (r?.trades ?? []).map((t) => ({ entry: toSeconds(t.entry), exit: toSeconds(t.exit), side: t.side, ret: t.return }));
 }

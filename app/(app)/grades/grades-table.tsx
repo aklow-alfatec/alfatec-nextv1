@@ -31,11 +31,46 @@ const ROW = 'h-7';
 /** The split between the grades and the details: % of the width the grades may take. Default 2/3 on narrow screens,
  *  3/4 on wide ones; dragged positions are kept per browser. */
 const SPLIT_KEY = 'alfatec.grades.split';
+const COLLAPSED_KEY = 'alfatec.grades.collapsed';
 const SPLIT_MIN = 25;
 const SPLIT_MAX = 90;
 const defaultSplit = () => (typeof window !== 'undefined' && window.matchMedia('(min-width: 768px)').matches ? 75 : 100 * (2 / 3));
 const fmtNum = (v: number | null) =>
   v === null ? '-' : v.toLocaleString(undefined, { maximumFractionDigits: Math.abs(v) < 1 ? 5 : Math.abs(v) < 100 ? 3 : 1 });
+
+/** A sideways-scrolling area with a second scrollbar above it, kept in step with the one below. The bar above always
+ *  takes its height (invisible when nothing overflows), so two panes side by side keep their rows level. */
+function TopScroll({ children, className, style }: { children: React.ReactNode; className?: string; style?: React.CSSProperties }) {
+  const top = useRef<HTMLDivElement>(null);
+  const main = useRef<HTMLDivElement>(null);
+  const [wide, setWide] = useState({ scroll: 0, client: 0 });
+  useEffect(() => {
+    const m = main.current;
+    if (!m) return;
+    const measure = () => setWide({ scroll: m.scrollWidth, client: m.clientWidth });
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(m);
+    if (m.firstElementChild) ro.observe(m.firstElementChild);
+    return () => ro.disconnect();
+  }, []);
+  const sync = (from: 'top' | 'main') => {
+    const a = from === 'top' ? top.current : main.current;
+    const b = from === 'top' ? main.current : top.current;
+    if (a && b && b.scrollLeft !== a.scrollLeft) b.scrollLeft = a.scrollLeft;
+  };
+  const overflow = wide.scroll > wide.client + 1;
+  return (
+    <div className={className} style={style}>
+      <div ref={top} onScroll={() => sync('top')} className="overflow-x-auto overflow-y-hidden" style={{ height: 12, visibility: overflow ? 'visible' : 'hidden' }} aria-hidden>
+        <div style={{ width: wide.scroll, height: 1 }} />
+      </div>
+      <div ref={main} onScroll={() => sync('main')} className="overflow-x-auto">
+        {children}
+      </div>
+    </div>
+  );
+}
 
 /** Weekly grade grid grouped into the dashboard sections, with the reading and each asset's risk / reward notes
  *  (nextv0's assets dashboard, merged in); a grade opens that Friday's breakdown. */
@@ -69,6 +104,25 @@ export function GradesTable({ rows, weeks }: { rows: GradeRow[]; weeks: string[]
       /* storage blocked: the position just isn't kept */
     }
   };
+  // groups (Commodity, Index, ETF, Stocks) fold like the dashboard's; the choice is kept in this browser
+  const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
+  useEffect(() => {
+    try {
+      setCollapsed(JSON.parse(localStorage.getItem(COLLAPSED_KEY) ?? '{}'));
+    } catch {
+      /* nothing kept */
+    }
+  }, []);
+  const toggleGroup = (key: string) =>
+    setCollapsed((c) => {
+      const next = { ...c, [key]: !c[key] };
+      try {
+        localStorage.setItem(COLLAPSED_KEY, JSON.stringify(next));
+      } catch {
+        /* storage blocked: not kept */
+      }
+      return next;
+    });
   const wide = weeks.length > 12;
   const sections = groupBySection(rows);
   const leftCols = weeks.length + 3;
@@ -93,7 +147,7 @@ export function GradesTable({ rows, weeks }: { rows: GradeRow[]; weeks: string[]
       {/* two tables with matching row heights: the grades on the left, the risk / reward details on the right, which
           scroll sideways on their own */}
       <div ref={box} className={`flex items-stretch ${dragging ? 'select-none' : ''}`}>
-        <div className="shrink-0 overflow-x-auto" style={{ maxWidth: `${split}%` }}>
+        <TopScroll className="shrink-0" style={{ maxWidth: `${split}%` }}>
           <table className="border-separate border-spacing-1 text-xs">
             <thead>
               <tr className={`${HEAD} text-fg-3`}>
@@ -111,13 +165,19 @@ export function GradesTable({ rows, weeks }: { rows: GradeRow[]; weeks: string[]
               <tbody key={s.key}>
                 <tr className={SECTION}>
                   <td colSpan={leftCols} className={`align-bottom text-[11px] font-semibold uppercase tracking-wider ${s.key === 'other' ? 'text-fg-2' : 'text-[#EA7A12]'}`}>
-                    {/* the title stays at the left while the weeks scroll under it */}
-                    <span className="sticky left-0 z-10 inline-block bg-surface pr-2">
+                    {/* the title stays at the left while the weeks scroll under it; click to fold the group */}
+                    <button
+                      type="button"
+                      onClick={() => toggleGroup(s.key)}
+                      aria-expanded={!collapsed[s.key]}
+                      className="sticky left-0 z-10 inline-flex items-center gap-1.5 bg-surface pr-2 text-left uppercase tracking-wider hover:opacity-80"
+                    >
+                      <span className={`text-fg-3 transition-transform ${collapsed[s.key] ? '' : 'rotate-90'}`}>›</span>
                       {s.label} <span className="num ml-1 font-normal text-fg-3">{s.items.length}</span>
-                    </span>
+                    </button>
                   </td>
                 </tr>
-                {s.items.map((r) => (
+                {!collapsed[s.key] && s.items.map((r) => (
                   <tr key={r.symbol} className={ROW}>
                     <td className="sticky left-0 z-10 bg-surface pr-2">
                       <Link href={`/symbols/${encodeURIComponent(r.symbol)}`} className="whitespace-nowrap font-semibold hover:text-accent">{r.title}</Link>
@@ -147,7 +207,7 @@ export function GradesTable({ rows, weeks }: { rows: GradeRow[]; weeks: string[]
               </tbody>
             ))}
           </table>
-        </div>
+        </TopScroll>
         {/* drag (touch or mouse) to move the split; double-click / double-tap puts it back to the default */}
         <div
           role="separator"
@@ -175,7 +235,7 @@ export function GradesTable({ rows, weeks }: { rows: GradeRow[]; weeks: string[]
         >
           <span className={`h-10 w-1 rounded-full ${dragging ? 'bg-accent' : 'bg-line-2 group-hover:bg-fg-3'}`} />
         </div>
-        <div className="min-w-0 flex-1 overflow-x-auto border-l border-line">
+        <TopScroll className="min-w-0 flex-1 border-l border-line">
           <table className="border-separate border-spacing-1 text-xs">
             <thead>
               <tr className={`${HEAD} whitespace-nowrap text-fg-3`}>
@@ -190,7 +250,7 @@ export function GradesTable({ rows, weeks }: { rows: GradeRow[]; weeks: string[]
             {sections.map((s) => (
               <tbody key={s.key}>
                 <tr className={SECTION}><td colSpan={6} /></tr>
-                {s.items.map((r) => (
+                {!collapsed[s.key] && s.items.map((r) => (
                   <tr key={r.symbol} className={`${ROW} whitespace-nowrap`}>
                     <td className="pl-3 font-bold" style={{ color: BIAS_COLOR[r.rr?.potential_bias ?? ''] }}>{r.rr?.potential_bias ?? '-'}</td>
                     <td className="num pl-3 text-right">{r.rr ? `${r.rr.potential_risk}%` : '-'}</td>
@@ -205,7 +265,7 @@ export function GradesTable({ rows, weeks }: { rows: GradeRow[]; weeks: string[]
               </tbody>
             ))}
           </table>
-        </div>
+        </TopScroll>
       </div>
 
       {open && (

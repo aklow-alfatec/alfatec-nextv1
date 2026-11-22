@@ -25,7 +25,7 @@ import { GradeZoneLegend } from '@/components/ui';
 import { partScoreColor } from '@/lib/grade-zones';
 
 /** Relative pane heights (stretch factors). */
-const STRETCH: Record<PaneKind, number> = { price: 3.2, grade: 1.7, pct: 1.2, score: 1.2, bool: 0.45, other: 1.2, equity: 2 };
+const STRETCH: Record<PaneKind, number> = { price: 3.2, grade: 1.7, pct: 1.2, score: 1.2, bool: 0.45, other: 1.2, equity: 2, drawdown: 0.9 };
 const PX_PER_STRETCH = 80;
 /** Height of one heatmap row, pixels. */
 const HEAT_ROW_PX = 16;
@@ -109,11 +109,11 @@ export function MultiPaneChart({ series, equity, trades, titles, extraRows, stre
   const [tops, setTops] = useState<{ kind: PaneKind; top: number }[]>([]);
   const [heatBox, setHeatBox] = useState<{ top: number; height: number } | null>(null);
   const heatRows = heatmap?.rows.length && heatmap.t.length ? heatmap.rows.length : 0;
-  const [log, setLog] = useState(true);
+  const [log, setLog] = useState(false); // equity pane: linear by default; the tick-box above the chart switches to log
   const [themeTick, setThemeTick] = useState(0);
 
   const panes = useMemo(
-    () => PANE_ORDER.filter((k) => (k === 'equity' ? !!equity : series.some((s) => s.pane === k))),
+    () => PANE_ORDER.filter((k) => (k === 'equity' || k === 'drawdown' ? !!equity : series.some((s) => s.pane === k))),
     [series, equity],
   );
   const stretchKey = JSON.stringify(stretch ?? {});
@@ -136,6 +136,7 @@ export function MultiPaneChart({ series, equity, trades, titles, extraRows, stre
     const chart = createChart(el, {
       autoSize: true,
       layout: {
+        attributionLogo: false,
         background: { type: ColorType.Solid, color: 'transparent' },
         textColor: th.text2,
         fontSize: 11,
@@ -214,15 +215,15 @@ export function MultiPaneChart({ series, equity, trades, titles, extraRows, stre
       const pane = idx.get('equity') as number;
       const eq = chart.addSeries(LineSeries, { ...lineBase, color: th.accent, lineWidth: 2, priceScaleId: 'right' }, pane);
       eq.setData(pairs(equity.t, equity.equity) as never);
-      eq.priceScale().applyOptions({ mode: log ? PriceScaleMode.Logarithmic : PriceScaleMode.Normal, scaleMargins: { top: 0.06, bottom: 0.32 } });
+      eq.priceScale().applyOptions({ mode: log ? PriceScaleMode.Logarithmic : PriceScaleMode.Normal, scaleMargins: { top: 0.06, bottom: 0.1 } });
       if (equity.benchmark) {
         const bh = chart.addSeries(LineSeries, { ...lineBase, color: th.text3, lineWidth: 1, priceScaleId: 'right' }, pane);
         bh.setData(pairs(equity.t, equity.benchmark) as never);
       }
+      // drawdown in its own pane under the equity, on the same time axis, in % of the running peak
       const dd = chart.addSeries(
         BaselineSeries,
         {
-          priceScaleId: 'dd',
           baseValue: { type: 'price', price: 0 },
           topLineColor: th.negative,
           bottomLineColor: th.negative,
@@ -234,12 +235,13 @@ export function MultiPaneChart({ series, equity, trades, titles, extraRows, stre
           priceLineVisible: false,
           lastValueVisible: false,
           crosshairMarkerVisible: false,
-          priceFormat: { type: 'percent' },
+          priceFormat: { type: 'percent', precision: 1, minMove: 0.1 },
         },
-        pane,
+        idx.get('drawdown') as number,
       );
-      dd.setData(pairs(equity.t, equity.drawdown.map((x) => (x === null ? null : x * 100))) as never);
-      dd.priceScale().applyOptions({ scaleMargins: { top: 0.72, bottom: 0.02 }, visible: false });
+      // open-trade drawdown (from the entry) when the run has it, else the drop from the account's peak
+      dd.setData((equity.tradeDd ? pairs(equity.tradeDd.t, equity.tradeDd.v) : pairs(equity.t, equity.drawdown.map((x) => (x === null ? null : x * 100)))) as never);
+      dd.priceScale().applyOptions({ scaleMargins: { top: 0.08, bottom: 0.08 } });
     }
 
     // entry / exit markers on the first price series, snapped to a bar the series has
@@ -248,7 +250,7 @@ export function MultiPaneChart({ series, equity, trades, titles, extraRows, stre
       const marks: SeriesMarker<Time>[] = [];
       for (const tr of trades) {
         const a = base ? nearestTime(base.t, tr.entry) : null;
-        const b = base ? nearestTime(base.t, tr.exit) : null;
+        const b = base && !tr.open ? nearestTime(base.t, tr.exit) : null;
         const long = tr.side !== 'short';
         if (a !== null) marks.push({ time: a as Time, position: long ? 'belowBar' : 'aboveBar', shape: long ? 'arrowUp' : 'arrowDown', color: long ? th.positive : th.negative, size: 1 });
         if (b !== null) marks.push({ time: b as Time, position: long ? 'aboveBar' : 'belowBar', shape: long ? 'arrowDown' : 'arrowUp', color: long ? th.negative : th.positive, size: 1 });
@@ -299,10 +301,14 @@ export function MultiPaneChart({ series, equity, trades, titles, extraRows, stre
       }
       if (equity) {
         const e = { t: equity.t, v: equity.equity };
-        rows.push({ label: 'Strategy', color: th.accent, text: fmtValue('equity', valueAt(e, t)) });
+        rows.push({ label: 'Account (backtest)', color: th.accent, text: fmtValue('equity', valueAt(e, t)) });
         if (equity.benchmark) rows.push({ label: 'Buy and hold', color: th.text3, text: fmtValue('equity', valueAt({ t: equity.t, v: equity.benchmark }, t)) });
+        if (equity.tradeDd) {
+          const o = valueAt(equity.tradeDd, t);
+          rows.push({ label: 'Open-trade drawdown', color: th.negative, text: o === null ? 'flat' : `${o.toFixed(1)}%` });
+        }
         const d = valueAt({ t: equity.t, v: equity.drawdown }, t);
-        rows.push({ label: 'Drawdown', color: th.negative, text: d === null ? '-' : `${(d * 100).toFixed(1)}%` });
+        rows.push({ label: 'Drawdown from peak', color: th.negative, text: d === null ? '-' : `${(d * 100).toFixed(1)}%` });
       }
       if (extraRows) rows.push(...extraRows(t));
       if (heatmap && heatRows) {
@@ -354,7 +360,15 @@ export function MultiPaneChart({ series, equity, trades, titles, extraRows, stre
         {/* pane titles and heatmap row names, above the chart's canvases (z-[5]) and below the readout (z-10) */}
         <div className="pointer-events-none absolute inset-0 z-[5] text-[11px] text-fg-3">
           {tops.map((p) => (
-            <span key={p.kind} className="absolute left-2" style={{ top: p.top + 3 }}>{titles?.[p.kind] ?? PANE_TITLES[p.kind]}</span>
+            <span key={p.kind} className="absolute left-2" style={{ top: p.top + 3 }}>
+              {titles?.[p.kind] ?? (p.kind === 'drawdown' && equity?.tradeDd ? 'Open-trade drawdown % (from entry)' : PANE_TITLES[p.kind])}
+              {p.kind === 'equity' && equity && (
+                <span className="ml-3 inline-flex items-center gap-3 text-fg-2">
+                  <span className="inline-flex items-center gap-1"><i className="inline-block h-0.5 w-4 bg-accent" />Account (backtest)</span>
+                  {equity.benchmark && <span className="inline-flex items-center gap-1"><i className="inline-block h-0.5 w-4 bg-fg-3" />Buy and hold</span>}
+                </span>
+              )}
+            </span>
           ))}
           {heatBox && heatmap && heatmap.rows.map((name, r) => (
             <span

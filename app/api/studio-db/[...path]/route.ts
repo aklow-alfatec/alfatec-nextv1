@@ -2,6 +2,7 @@ import { auth } from '@/auth';
 import { engineCall } from '@/lib/engine-server';
 import { currentViewer } from '@/lib/viewer';
 import { catalogue, downsample, eventsJson, exportLinks, loadRun, StorageNotConfigured } from '@/lib/run-store';
+import { openTradeSeries } from '@/lib/open-trade-dd';
 import {
   experimentDetail, experimentStatus, getGraph, graphVersion, graphVersions, listExperiments, listGraphs, listRuns,
   runDetail, runStatus, type ListQuery,
@@ -62,6 +63,17 @@ async function runWithSeries(id: string, u: URL): Promise<Response> {
   });
 }
 
+/** GET /runs/{id}/open-trade-drawdown?node=STRATEGY: the strategy's drawdown from its entries over the whole run. */
+async function runOpenTradeDd(id: string, node: string | null): Promise<Response> {
+  const row = (await runDetail(id)) as { status?: string; summary?: { strategies?: { node: string; price_ref: string | null }[] } } | null;
+  if (!row) return notFound('run not found');
+  if (row.status !== 'done') return Response.json({ detail: 'run has not finished' }, { status: 409 });
+  const s = (row.summary?.strategies ?? []).find((x) => x.node === node);
+  if (!s) return notFound('strategy not found in this run');
+  const r = await openTradeSeries(id, s.node, s.price_ref);
+  return r ? Response.json(r) : notFound('the run has no price or position series');
+}
+
 async function runCatalogue(id: string): Promise<Response> {
   const row = await runDetail(id);
   if (!row) return notFound('run not found');
@@ -85,6 +97,7 @@ async function answer(path: string[], u: URL): Promise<Response> {
     if (!id) return Response.json(await listRuns(listQuery(u)));
     if (sub === 'status') return (await runStatus(id).then((r) => r && Response.json(r))) ?? notFound('not found');
     if (sub === 'series-catalogue') return runCatalogue(id);
+    if (sub === 'open-trade-drawdown') return runOpenTradeDd(id, u.searchParams.get('node'));
     if (!sub) return runWithSeries(id, u);
   }
   if (root === 'experiments' && path.length <= 3) {

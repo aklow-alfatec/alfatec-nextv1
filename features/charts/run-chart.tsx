@@ -4,7 +4,8 @@ import dynamic from 'next/dynamic';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Button, Segmented } from '@/components/ui';
 import { engineApi, type StrategyReport } from '../studio/api';
-import { buildPlot, equityFromReport, tradesFromReport, type AddedSeries, type GraphColumns } from './build';
+import { buildPlot, equityFromReport, openTradeFromPosition, tradesFromReport, type AddedSeries, type GraphColumns } from './build';
+import type { TradeMark } from './data';
 import { PRESETS, initialLayout, layoutKey, parseLayout, presetLayout, resolveLayout, sameLayout, type ChartLayout, type PresetName } from './layout';
 import { Picker } from './picker';
 import type { ChartSource } from './sources';
@@ -24,6 +25,8 @@ interface Props {
   savedLayout?: unknown;
   /** after the layout was saved to the graph (the editor keeps its own copy of graph.meta) */
   onSaved?: (layout: ChartLayout) => void;
+  /** open-trade drawdown over the whole run (from /api/studio-db); the drawdown pane shows it when given */
+  tradeDd?: { t: number[]; v: (number | null)[] } | null;
 }
 
 const readDraft = (graphId: string | null | undefined): ChartLayout | null => {
@@ -45,7 +48,7 @@ const writeDraft = (graphId: string, l: ChartLayout | null) => {
 };
 
 /** The backtest chart with its indicator picker: presets, per-graph saved layout, columns fetched as the layout needs them. */
-export function RunChart({ source, report, graphId, savedLayout, onSaved }: Props) {
+export function RunChart({ source, report, graphId, savedLayout, onSaved, tradeDd }: Props) {
   const cat = source.catalogue;
   const priceRef = report?.price_ref;
   const [saved, setSaved] = useState<ChartLayout | null>(() => parseLayout(savedLayout));
@@ -126,8 +129,23 @@ export function RunChart({ source, report, graphId, savedLayout, onSaved }: Prop
   );
   const hasEquity = present.some((s) => s.special === 'equity');
   const hasTrades = present.some((s) => s.special === 'trades');
-  const equity = useMemo(() => (hasEquity ? equityFromReport(report) : null), [hasEquity, report]);
-  const trades = useMemo(() => (hasTrades ? tradesFromReport(report) : null), [hasTrades, report]);
+  const equity = useMemo(() => {
+    const e = hasEquity ? equityFromReport(report) : null;
+    return e && tradeDd ? { ...e, tradeDd } : e;
+  }, [hasEquity, report, tradeDd]);
+  // a position still open at the end has no closed trade in the report: its entry comes from the position series
+  const [openMark, setOpenMark] = useState<TradeMark | null>(null);
+  useEffect(() => {
+    setOpenMark(null);
+    if (!hasTrades || !report?.open_position) return;
+    const ref = `${report.node}.position`;
+    let stop = false;
+    source.loadColumns([ref]).then((c) => !stop && setOpenMark(openTradeFromPosition(c.t, c.cols[ref] ?? []))).catch(() => undefined);
+    return () => {
+      stop = true;
+    };
+  }, [hasTrades, report, source]);
+  const trades = useMemo(() => (hasTrades ? [...tradesFromReport(report), ...(openMark ? [openMark] : [])] : null), [hasTrades, report, openMark]);
 
   const baseline = saved ?? initialLayout(null, cat, priceRef);
   const dirty = !!layout && !sameLayout(layout, baseline);
@@ -184,7 +202,6 @@ function Legend({ plot, equity }: { plot: { id: string; label: string; color: st
       {plot.map((s) => (
         <span key={s.id} className="flex items-center gap-1.5"><i className="inline-block h-0.5 w-3.5" style={{ background: s.color }} />{s.label}</span>
       ))}
-      {equity && <span className="flex items-center gap-1.5"><i className="inline-block h-0.5 w-3.5 bg-accent" />Strategy <i className="ml-2 inline-block h-0.5 w-3.5 bg-fg-3" />Buy and hold</span>}
     </div>
   );
 }

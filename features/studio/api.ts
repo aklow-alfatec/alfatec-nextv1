@@ -13,6 +13,7 @@ const DB_PATHS = [
   /^\/experiments\/[^/?]+$/,
   /^\/runs\/[^/?]+(\?|$)/,                    // a run, its thinned columns and download links (Storage, lib/run-store.ts)
   /^\/runs\/[^/?]+\/series-catalogue$/,
+  /^\/runs\/[^/?]+\/open-trade-drawdown\?node=[^&]+$/,
 ];
 
 /** True when a request is a studio read the database answers (GET only; see app/api/studio-db). */
@@ -275,6 +276,9 @@ export const engineApi = {
   /** Signed download links for a finished run's files (from the engine; they expire after an hour). */
   runExports: async (id: string) =>
     (await call<RunDetail>(`/runs/${encodeURIComponent(id)}?include_series=false&events_limit=0&exports=true`)).exports ?? {},
+  /** open-trade drawdown (% from entry) of a strategy over the whole run, from Storage */
+  runOpenTradeDrawdown: (id: string, node: string) =>
+    call<{ t: number[]; v: (number | null)[]; max: number | null }>(`/runs/${encodeURIComponent(id)}/open-trade-drawdown?node=${encodeURIComponent(node)}`),
   seriesCatalogue: (id: string) => call<{ run_id: string; series: SeriesInfo[] }>(`/runs/${encodeURIComponent(id)}/series-catalogue`),
   /** Thinned columns of a finished run (no events, no download links). start / end limit the span before thinning. */
   runColumns: async (id: string, columns: string[], q: { max_points?: number; start?: string; end?: string } = {}) => {

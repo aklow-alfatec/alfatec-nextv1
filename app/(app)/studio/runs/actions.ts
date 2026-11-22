@@ -2,7 +2,7 @@
 
 import { revalidatePath } from 'next/cache';
 import { currentViewer } from '@/lib/viewer';
-import { BACKTEST_TAG, setRunName, setRunTag } from '@/lib/studio-db';
+import { BACKTEST_TAG, setRunName, setRunTag, setRunTagMany } from '@/lib/studio-db';
 
 /** Show a run on the Backtest page or take it off (the ViewInBacktest tag). Returns the run's tags. */
 export async function setBacktestAction(runId: string, on: boolean): Promise<{ ok: true; tags: string[] } | { ok: false; error: string }> {
@@ -27,6 +27,20 @@ export async function setRunNameAction(runId: string, name: string): Promise<{ o
   try {
     const tags = await setRunName(runId, name);
     if (!tags) return { ok: false, error: 'Run not found' };
+    revalidatePath('/backtest');
+    return { ok: true, tags };
+  } catch (e) {
+    return { ok: false, error: (e as Error).message };
+  }
+}
+
+/** Show many runs on the Backtest page, or take them all off (the runs a filtered list shows). Returns each run's tags. */
+export async function setBacktestManyAction(runIds: string[], on: boolean): Promise<{ ok: true; tags: Record<string, string[]> } | { ok: false; error: string }> {
+  const v = await currentViewer();
+  if (!v) return { ok: false, error: 'Not signed in' };
+  if (v.guest) return { ok: false, error: 'Not available on this account' };
+  try {
+    const tags = await setRunTagMany(runIds.slice(0, 1000), BACKTEST_TAG, on);
     revalidatePath('/backtest');
     return { ok: true, tags };
   } catch (e) {

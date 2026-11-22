@@ -115,6 +115,16 @@ export async function setRunName(id: string, name: string): Promise<string[] | n
   return r ? (r.tags as string[]) : null;
 }
 
+/** Add or remove one tag on many runs at once. Returns each changed run's new tags. */
+export async function setRunTagMany(ids: string[], tag: string, on: boolean): Promise<Record<string, string[]>> {
+  const ok = ids.filter(isUuid);
+  if (!ok.length) return {};
+  const rows = on
+    ? await sql`update engine_runs set tags = array_append(array_remove(tags, ${tag}), ${tag}) where id::text = any(${sql.array(ok)}::text[]) returning id::text as id, tags`
+    : await sql`update engine_runs set tags = array_remove(tags, ${tag}) where id::text = any(${sql.array(ok)}::text[]) returning id::text as id, tags`;
+  return Object.fromEntries(rows.map((r) => [r.id as string, r.tags as string[]]));
+}
+
 /** Add or remove one tag on a run (nextv1 only: the engine API does not read tags). Returns the new tags. */
 export async function setRunTag(id: string, tag: string, on: boolean): Promise<string[] | null> {
   if (!isUuid(id)) return null;

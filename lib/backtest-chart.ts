@@ -1,16 +1,19 @@
 // Server-side only (reads run files from Storage via lib/run-store.ts).
-import { buildPlot, equityFromReport, graphColumns, tradesFromReport } from '@/features/charts/build';
-import type { EquityData, PlotSeries, TradeMark } from '@/features/charts/data';
+import { buildPlot, equityFromReport, graphColumns, openTradeFromPosition, tradesFromReport } from '@/features/charts/build';
+import { toSeconds, type EquityData, type PlotSeries, type TradeMark } from '@/features/charts/data';
 import { initialLayout, resolveLayout } from '@/features/charts/layout';
 import { MAX_POINTS } from '@/features/charts/sources';
 import type { SeriesInfo, StrategyReport } from '@/features/studio/api';
 import { maskedName } from '@/lib/access';
+import { openTradeSeries } from '@/lib/open-trade-dd';
 import { catalogue, downsample, loadRun } from '@/lib/run-store';
 
 /** A run's chart, ready to draw: the graph's saved layout (or the Strategy preset), its columns fetched here, no
  *  picker. Added indicators are left out (they need the engine). For guests the grading parts are labelled
  *  "Indicator n" and every series id is neutral, so no part name reaches the browser. */
 export interface StaticChart {
+  /** the most negative open-trade drawdown of the run (percent), for the results table */
+  openTradeDdMax?: number | null;
   plot: PlotSeries[];
   equity: EquityData | null;
   trades: TradeMark[] | null;
@@ -43,5 +46,17 @@ export async function staticRunChart(runId: string, savedLayout: unknown, report
     });
   }
   const has = (k: 'equity' | 'trades') => present.some((s) => s.special === k);
-  return { plot, equity: has('equity') ? equityFromReport(report) : null, trades: has('trades') ? tradesFromReport(report) : null };
+  let trades = has('trades') ? tradesFromReport(report) : null;
+  const posRef = report ? `${report.node}.position` : '';
+  if (trades && report?.open_position && run.columns[posRef]) {
+    // a position still open at the end is not in the report's trade list: add its entry from the position series
+    const d = downsample(run, MAX_POINTS, [posRef]);
+    const open = openTradeFromPosition(d.ts.map(toSeconds), d.columns[posRef] as (number | null)[]);
+    if (open) trades = [...trades, open];
+  }
+  // open-trade drawdown (from each entry) for the drawdown pane and the results table
+  const ot = report ? await openTradeSeries(runId, report.node, report.price_ref).catch(() => null) : null;
+  const equity = has('equity') ? equityFromReport(report) : null;
+  if (equity && ot) equity.tradeDd = { t: ot.t, v: ot.v };
+  return { plot, equity, trades, openTradeDdMax: ot ? ot.max : null };
 }

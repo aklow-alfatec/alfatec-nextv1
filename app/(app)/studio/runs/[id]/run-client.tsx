@@ -21,6 +21,8 @@ export function RunClient({ id }: { id: string }) {
   const [chartError, setChartError] = useState('');
   const [exports, setExports] = useState<Record<string, string | null> | null>(null);
   const [exportsBusy, setExportsBusy] = useState(false);
+  // per strategy node: its open-trade drawdown over the whole run (null = not available)
+  const [tradeDd, setTradeDd] = useState<Record<string, { t: number[]; v: (number | null)[]; max: number | null } | null>>({});
 
   useEffect(() => {
     let stop = false;
@@ -70,6 +72,17 @@ export function RunClient({ id }: { id: string }) {
   }, [id, done]);
 
   const strategies = run?.summary?.strategies ?? [];
+  const nodes = strategies.map((s) => s.node).join(',');
+  useEffect(() => {
+    if (!done) return;
+    let stop = false;
+    for (const node of nodes.split(',').filter(Boolean)) {
+      engineApi.runOpenTradeDrawdown(id, node).then((r) => !stop && setTradeDd((m) => ({ ...m, [node]: r }))).catch(() => !stop && setTradeDd((m) => ({ ...m, [node]: null })));
+    }
+    return () => {
+      stop = true;
+    };
+  }, [id, done, nodes]);
   // a run with its own settings opens its graph with them filled in (read-only; the saved graph is unchanged)
   const graphHref = run?.graph_id && run.params && Object.keys(run.params).length ? `/studio/graphs/${run.graph_id}?run=${id}` : undefined;
   const active = run && ACTIVE.has(run.status);
@@ -134,9 +147,10 @@ export function RunClient({ id }: { id: string }) {
               <StrategyResult
                 report={report}
                 chartHeight={320}
+                openTradeDdMax={tradeDd[report.node] === undefined ? undefined : tradeDd[report.node]?.max ?? null}
                 chart={
                   source ? (
-                    <RunChart key={report.node} source={source} report={report} graphId={run?.graph_id} />
+                    <RunChart key={report.node} source={source} report={report} graphId={run?.graph_id} tradeDd={tradeDd[report.node] ?? null} />
                   ) : chartError ? (
                     <p className="text-xs text-negative">Indicator chart unavailable: {chartError}</p>
                   ) : undefined

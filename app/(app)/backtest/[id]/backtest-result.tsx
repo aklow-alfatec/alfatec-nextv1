@@ -28,7 +28,7 @@ export function BacktestResult({ params, strategies, charts }: { params: RunPara
             ) : undefined
           }
         >
-          <StrategyResult report={report} chartHeight={320} chart={chart ? <StaticRunChart key={k} {...chart} /> : undefined} />
+          <StrategyResult report={report} chartHeight={320} chart={chart ? <StaticRunChart key={k} {...chart} /> : undefined} openTradeDdMax={chart?.openTradeDdMax} />
         </Card>
       ) : (
         <Card><p className="text-sm text-fg-2">This backtest has no strategy results.</p></Card>

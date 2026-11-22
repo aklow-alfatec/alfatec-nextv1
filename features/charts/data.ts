@@ -18,6 +18,8 @@ export interface EquityData {
   equity: (number | null)[];
   benchmark: (number | null)[] | null;
   drawdown: (number | null)[];
+  /** open-trade drawdown (% from the open position's entry) on its own time grid; the drawdown pane shows it when set */
+  tradeDd?: { t: number[]; v: (number | null)[] } | null;
 }
 
 export interface TradeMark {
@@ -25,6 +27,8 @@ export interface TradeMark {
   exit: number;
   side: string;
   ret: number | null;
+  /** still open at the end of the run: only the entry arrow is drawn */
+  open?: boolean;
 }
 
 /** ISO timestamp from the engine (naive = UTC) to unix seconds. */
