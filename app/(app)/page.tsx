@@ -1,9 +1,10 @@
 import Link from 'next/link';
 import { Card, GradeChip, ReadingTag, Sparkline } from '@/components/ui';
 import sql from '@/lib/db';
-import { activePipelines, fridays, lastFinalFriday, weeklyGrades } from '@/lib/grades';
+import { activePipelines, fridays, lastFinalFriday, ongoingAlerts, weeklyGrades } from '@/lib/grades';
 import { displayTags, groupBySection } from '@/lib/sections';
 import { currentViewer } from '@/lib/viewer';
+import { OngoingAlert } from './ongoing-alert';
 
 export const dynamic = 'force-dynamic';
 
@@ -61,7 +62,9 @@ export default async function OverviewPage({ searchParams }: { searchParams: Pro
   const prev = weeks[weeks.length - 2];
   const guest = (await currentViewer())?.guest ?? true;
   // the guest view shows grades only: no data health or Studio activity (not even queried)
-  const [grid, health, feed] = await Promise.all([weeklyGrades(symbols, weeks), guest ? null : dataHealth(symbols), guest ? [] : recent()]);
+  // the guest view never sees component names, so no alerts for it (not even queried)
+  const [grid, health, feed, alerts] = await Promise.all([weeklyGrades(symbols, weeks), guest ? null : dataHealth(symbols), guest ? [] : recent(), guest ? [] : ongoingAlerts(symbols, prev, week)]);
+  const titles = new Map(pipes.map((p) => [p.symbol, p.title]));
 
   const rows = pipes.map((p) => {
     const cur = grid[p.symbol]?.[week];
@@ -98,6 +101,14 @@ export default async function OverviewPage({ searchParams }: { searchParams: Pro
           {week < latest && <Link className="rounded-control border border-line-2 px-3 py-1.5 hover:bg-raised" href={`/?week=${shift(week, 7)}`}>Next week</Link>}
         </div>
       </div>
+
+      {alerts.length > 0 && (
+        <OngoingAlert
+          prevDate={prev}
+          date={week}
+          items={alerts.map((a) => ({ symbol: a.symbol, title: titles.get(a.symbol) ?? a.symbol, part: a.node.replace(/_GRADE$/, ''), from: a.from as number, to: a.to as number, delta: a.delta }))}
+        />
+      )}
 
       <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
         {[

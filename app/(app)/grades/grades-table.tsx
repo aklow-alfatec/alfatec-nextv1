@@ -4,7 +4,7 @@ import { useEffect, useRef, useState, useTransition } from 'react';
 import { Button, GradeChip, PartScoreChip, ReadingTag } from '@/components/ui';
 import type { RiskRewardRow } from '@/lib/risk-reward';
 import { groupBySection, type SectionKey } from '@/lib/sections';
-import { dayDetailsAction, type DayDetails } from './actions';
+import { DayDetailsDialog, useDayDetails } from './day-details-dialog';
 
 export interface GradeRow {
   symbol: string;
@@ -75,10 +75,8 @@ function TopScroll({ children, className, style }: { children: React.ReactNode; 
 /** Weekly grade grid grouped into the dashboard sections, with the reading and each asset's risk / reward notes
  *  (nextv0's assets dashboard, merged in); a grade opens that Friday's breakdown. */
 export function GradesTable({ rows, weeks }: { rows: GradeRow[]; weeks: string[] }) {
-  const [open, setOpen] = useState<{ symbol: string; date: string } | null>(null);
-  const [details, setDetails] = useState<DayDetails | null>(null);
-  const [error, setError] = useState('');
-  const [pending, start] = useTransition();
+  const dd = useDayDetails();
+  const { show } = dd;
   const box = useRef<HTMLDivElement>(null);
   const [split, setSplit] = useState(100 * (2 / 3));
   const [dragging, setDragging] = useState(false);
@@ -126,21 +124,6 @@ export function GradesTable({ rows, weeks }: { rows: GradeRow[]; weeks: string[]
   const wide = weeks.length > 12;
   const sections = groupBySection(rows);
   const leftCols = weeks.length + 3;
-
-  const show = (symbol: string, date: string) => {
-    setOpen({ symbol, date });
-    setDetails(null);
-    setError('');
-    start(async () => {
-      try {
-        const d = await dayDetailsAction(symbol, date);
-        if (d) setDetails(d);
-        else setError('No data for this day.');
-      } catch (e) {
-        setError((e as Error).message);
-      }
-    });
-  };
 
   return (
     <>
@@ -268,57 +251,7 @@ export function GradesTable({ rows, weeks }: { rows: GradeRow[]; weeks: string[]
         </TopScroll>
       </div>
 
-      {open && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" role="dialog" aria-modal="true" aria-label={`${open.symbol} on ${open.date}`}>
-          <div className="max-h-[85vh] w-full max-w-2xl overflow-auto rounded-card border border-line bg-surface shadow-xl">
-            <div className="flex items-center gap-2 border-b border-line p-4">
-              <span className="font-semibold">{open.symbol}</span>
-              {details?.pipeline && <span className="text-xs text-fg-3">{details.pipeline}</span>}
-              <span className="num text-xs text-fg-2">{fmtDay(open.date)}</span>
-              <Button className="ml-auto" size="sm" onClick={() => setOpen(null)}>Close</Button>
-            </div>
-            <div className="p-4">
-              {pending && <p className="text-sm text-fg-3">Loading...</p>}
-              {error && <p className="text-sm text-negative">{error}</p>}
-              {details && (
-                <div className="space-y-4">
-                  <div className="flex flex-wrap items-center gap-3 text-sm">
-                    <GradeChip grade={details.grade} />
-                    <span className="num text-fg-2">{details.points ?? '-'} / {details.max ?? '-'} points</span>
-                    <ReadingTag reading={details.reading} />
-                    {details.date && details.date !== open.date && <span className="text-xs text-fg-3">(graded {fmtDay(details.date)})</span>}
-                  </div>
-                  {details.parts.length === 0 ? (
-                    <p className="text-sm text-fg-3">No grading components found for this pipeline.</p>
-                  ) : (
-                    <table className="w-full text-sm">
-                      <thead className="text-xs text-fg-3">
-                        <tr>
-                          <th className="py-1 text-left font-medium">Component</th>
-                          {!details.masked && <th className="py-1 text-right font-medium">Value</th>}
-                          <th className="py-1 text-center font-medium">Score</th>
-                          {!details.masked && <th className="py-1 pl-3 text-left font-medium">Rule</th>}
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {details.parts.map((p) => (
-                          <tr key={p.node} className="border-t border-line">
-                            <td className="py-1.5 font-medium">{p.input ?? p.node.replace(/_GRADE$/, '')}</td>
-                            {!details.masked && <td className="num py-1.5 text-right">{fmtNum(p.value)}</td>}
-                            <td className="py-1.5 text-center"><PartScoreChip score={p.score} /></td>
-                            {!details.masked && <td className="py-1.5 pl-3 text-xs text-fg-2">{p.rule}</td>}
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  )}
-                  <p className="text-[11px] text-fg-3">Score 5 = undervalued, 1 = overvalued.</p>
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
+      <DayDetailsDialog state={dd} />
     </>
   );
 }

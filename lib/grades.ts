@@ -167,6 +167,18 @@ export interface NodeChange {
   to: number | null;
 }
 
+/** nextv0's "Ongoing Alert": component grades that moved by MORE than `over` points between two Fridays (default: 2 or
+ *  more steps on the 1..5 scale). Both Fridays must have a real grade (1..5): a missing component, or the -1 "no data"
+ *  marker, is not a grade moving. Biggest moves first. */
+export async function ongoingAlerts(symbols: string[], prev: string, cur: string, over = 1): Promise<(NodeChange & { delta: number })[]> {
+  const changes = await componentChanges(symbols, prev, cur);
+  return changes
+    .filter((c): c is NodeChange & { from: number; to: number } => c.from !== null && c.to !== null && c.from >= 1 && c.to >= 1)
+    .map((c) => ({ ...c, delta: c.to - c.from }))
+    .filter((c) => Math.abs(c.delta) > over)
+    .sort((a, b) => Math.abs(b.delta) - Math.abs(a.delta) || a.symbol.localeCompare(b.symbol));
+}
+
 /** Component grades (nodes ending `_GRADE`, 1..5) that changed between two Fridays (nextv0 changes monitor). */
 export async function componentChanges(symbols: string[], prev: string, cur: string): Promise<NodeChange[]> {
   if (!symbols.length) return [];
