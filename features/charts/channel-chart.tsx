@@ -34,6 +34,7 @@ const theme = () => ({
 });
 
 const YEAR = 365.25 * 86400;
+const PRICE_COLOR = '#5B9BF0';
 const HEAT_PX = 18;
 type Range = '1Y' | '5Y' | 'ALL';
 
@@ -66,6 +67,7 @@ interface Readout {
   score: number | null;
   pos: number | null;
   stored: ChannelData['fridays'][number] | null;
+  price: number | null;
 }
 
 export function ChannelChart({ data }: { data: ChannelData }) {
@@ -74,6 +76,7 @@ export function ChannelChart({ data }: { data: ChannelData }) {
   const [range, setRange] = useState<Range>('ALL');
   const [readout, setReadout] = useState<Readout | null>(null);
   const [heatTop, setHeatTop] = useState<number | null>(null);
+  const [priceTop, setPriceTop] = useState<number | null>(null);
   const log = data.scaling === 'log';
   const fridayByDate = useMemo(() => new Map(data.fridays.map((f) => [f.date, f])), [data.fridays]);
 
@@ -153,14 +156,24 @@ export function ChannelChart({ data }: { data: ChannelData }) {
 
     chart.priceScale('right', 0).applyOptions({ mode: log ? PriceScaleMode.Logarithmic : PriceScaleMode.Normal, scaleMargins: { top: 0.06, bottom: 0.06 } });
 
+    // the asset's own price, in its own pane on the same time axis
+    const px = chart.addSeries(LineSeries, { ...base, color: PRICE_COLOR, lineWidth: 2, lastValueVisible: true }, 1);
+    px.setData(data.price.t.map((t, i) => (data.price.v[i] === null ? { time: t as Time } : { time: t as Time, value: data.price.v[i] as number })) as never);
+    chart.priceScale('right', 1).applyOptions({ scaleMargins: { top: 0.12, bottom: 0.06 } });
+
     // this component's score each Friday
-    const heat = chart.addCustomSeries(heatmapView(), { rows: 1, priceLineVisible: false, lastValueVisible: false, priceFormat: { type: 'custom', formatter: () => '', minMove: 1 } }, 1);
+    const heat = chart.addCustomSeries(heatmapView(), { rows: 1, priceLineVisible: false, lastValueVisible: false, priceFormat: { type: 'custom', formatter: () => '', minMove: 1 } }, 2);
     heat.setData(data.fridays.map((f) => ({ time: (Date.parse(f.date) / 1000) as Time, scores: [f.score] })) as never);
     heat.priceScale().applyOptions({ scaleMargins: { top: 0, bottom: 0 } });
     const panes = chart.panes();
     panes[0].setStretchFactor(10);
-    panes[1]?.setStretchFactor(((HEAT_PX + 6) / Math.max(200, el.clientHeight - HEAT_PX)) * 10);
-    const measure = () => setHeatTop(chart.panes()[1] ? chart.panes()[0].getHeight() + 1 : null);
+    panes[1]?.setStretchFactor(4);
+    panes[2]?.setStretchFactor(((HEAT_PX + 6) / Math.max(200, el.clientHeight - HEAT_PX)) * 14);
+    const measure = () => {
+      const ps = chart.panes();
+      setPriceTop(ps[1] ? ps[0].getHeight() + 1 : null);
+      setHeatTop(ps[2] ? ps[0].getHeight() + ps[1].getHeight() + 2 : null);
+    };
     requestAnimationFrame(measure);
     const ro = new ResizeObserver(() => requestAnimationFrame(measure));
     ro.observe(el);
@@ -184,6 +197,10 @@ export function ChannelChart({ data }: { data: ChannelData }) {
         score: ch && value !== null ? scoreOf(value, ch.thresholds) : null,
         pos: ch && value !== null ? positionIn(value, ch, log) : null,
         stored: fridayByDate.get(isoOf(t)) ?? null,
+        price: (() => {
+          const pi = idxAt(data.price.t, t);
+          return pi >= 0 ? data.price.v[pi] : null;
+        })(),
       });
     });
 
@@ -224,6 +241,11 @@ export function ChannelChart({ data }: { data: ChannelData }) {
       </div>
       <div className="relative min-h-0 flex-1">
         <div ref={host} className="absolute inset-0" />
+        {priceTop !== null && (
+          <span className="pointer-events-none absolute left-2 z-[5] inline-flex items-center gap-1 rounded-sm bg-surface/90 px-1 text-[11px] text-fg-2" style={{ top: priceTop + 3 }}>
+            <i className="inline-block h-0.5 w-4" style={{ background: PRICE_COLOR }} />{data.symbol} price · daily close
+          </span>
+        )}
         {heatTop !== null && (
           <span className="pointer-events-none absolute left-1 z-[5] rounded-sm bg-surface/90 px-1 text-[10px] font-medium text-fg" style={{ top: heatTop + 3 }}>score</span>
         )}
@@ -236,6 +258,7 @@ export function ChannelChart({ data }: { data: ChannelData }) {
             <Row k="expensive line" v={fmtNum(readout.lower)} />
             <Row k="alert (expensive)" v={fmtNum(readout.alertExpensive)} />
             <Row k="in the channel" v={readout.pos === null ? '-' : `${Math.round(readout.pos * 100)}%`} />
+            <Row k={`${data.symbol} price`} v={fmtNum(readout.price)} />
             <div className="flex items-center justify-between gap-3">
               <span className="text-fg-2">score</span>
               <span className="num rounded-chip px-1 font-semibold text-black" style={{ background: scoreColor ?? 'transparent' }}>{readout.score ?? '-'}</span>

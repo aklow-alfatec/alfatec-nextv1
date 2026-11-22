@@ -44,6 +44,8 @@ export interface ChannelData {
   alertRange: number;
   /** daily input value (unix seconds) */
   value: { t: number[]; v: (number | null)[] };
+  /** the asset's own daily close over the same period (unix seconds) */
+  price: { t: number[]; v: (number | null)[] };
   /** the lines on the same days plus 12 months ahead (weekly): lower, the 4 band edges, upper, the 2 alert levels */
   lines: { t: number[]; lower: (number | null)[]; upper: (number | null)[]; edges: (number | null)[][]; alertCheap: (number | null)[]; alertExpensive: (number | null)[] };
   fridays: StoredFriday[];
@@ -85,9 +87,10 @@ export async function channelData(symbol: string, node: string, pipelineName?: s
   const in2 = kind === 'single' ? null : String(input.params.in2);
   const log = isLog(params);
 
-  const [a, b, lags, stored, alerts, rangeRows] = await Promise.all([
+  const [a, b, assetCloses, lags, stored, alerts, rangeRows] = await Promise.all([
     closes(in1),
     in2 ? closes(in2) : Promise.resolve([] as PricePoint[]),
+    in1 === symbol || in2 === symbol ? Promise.resolve(null) : closes(symbol),
     lagDays(in2 ? [in1, in2] : [in1]),
     inactive
       ? sql<{ date: Date; n: unknown }[]>`SELECT date, jsondata -> 'nodes' -> ${node} AS n FROM pipeline_grades WHERE pipeline = ${inactive} ORDER BY date`
@@ -160,9 +163,16 @@ export async function channelData(symbol: string, node: string, pipelineName?: s
     });
   }
 
+  // the asset's price from when the component has data (its first daily value, or first Friday graded with a value)
+  const ownCloses = assetCloses ?? (in1 === symbol ? a : b);
+  const firstGraded = fridays.find((f) => f.value !== null);
+  const from = Math.min(days[0] ?? Infinity, firstGraded ? Date.parse(firstGraded.date) : Infinity);
+  const priceRows = ownCloses.filter((p) => p.t >= (Number.isFinite(from) ? from : 0));
+  const price = { t: priceRows.map((p) => p.t / 1000), v: priceRows.map((p) => r7(p.close)) };
+
   return {
     symbol, pipeline: pipe.name, node, label: node.replace(/_GRADE$/, ''), kind, in1, in2,
-    scaling: log ? 'log' : 'linear', alertRange, value, lines, fridays,
+    scaling: log ? 'log' : 'linear', alertRange, value, price, lines, fridays,
     breaches: alerts.map((x) => ({ week: iso(x.week), side: x.side, excess: Number(x.excess), isNew: x.is_new, checkData: x.check_data })),
   };
 }
