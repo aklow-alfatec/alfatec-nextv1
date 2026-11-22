@@ -62,7 +62,7 @@ function TopScroll({ children, className, style }: { children: React.ReactNode; 
   const overflow = wide.scroll > wide.client + 1;
   return (
     <div className={className} style={style}>
-      <div ref={top} onScroll={() => sync('top')} className="overflow-x-auto overflow-y-hidden" style={{ height: 12, visibility: overflow ? 'visible' : 'hidden' }} aria-hidden>
+      <div ref={top} onScroll={() => sync('top')} className="mb-1 overflow-x-auto overflow-y-hidden rounded-full bg-raised" style={{ height: 14, visibility: overflow ? 'visible' : 'hidden' }} aria-hidden>
         <div style={{ width: wide.scroll, height: 1 }} />
       </div>
       <div ref={main} onScroll={() => sync('main')} className="overflow-x-auto">
@@ -121,12 +121,30 @@ export function GradesTable({ rows, weeks }: { rows: GradeRow[]; weeks: string[]
       }
       return next;
     });
+  const setAll = (fold: boolean) => {
+    const next = Object.fromEntries(groupBySection(rows).map((s) => [s.key, fold]));
+    setCollapsed(next);
+    try {
+      localStorage.setItem(COLLAPSED_KEY, JSON.stringify(next));
+    } catch {
+      /* storage blocked: not kept */
+    }
+  };
   const wide = weeks.length > 12;
   const sections = groupBySection(rows);
   const leftCols = weeks.length + 3;
+  // the dashboard's band counts, on each group's latest grade
+  const band = (items: GradeRow[]) => {
+    const last = items.map((r) => r.grades[r.grades.length - 1]).filter((g): g is number => g !== null);
+    return { under: last.filter((g) => g >= 80).length, normal: last.filter((g) => g >= 40 && g < 80).length, over: last.filter((g) => g < 40).length };
+  };
 
   return (
     <>
+      <div className="mb-2 flex justify-end gap-2">
+        <Button size="sm" onClick={() => setAll(false)}>Expand all</Button>
+        <Button size="sm" onClick={() => setAll(true)}>Collapse all</Button>
+      </div>
       {/* two tables with matching row heights: the grades on the left, the risk / reward details on the right, which
           scroll sideways on their own */}
       <div ref={box} className={`flex items-stretch ${dragging ? 'select-none' : ''}`}>
@@ -147,16 +165,22 @@ export function GradesTable({ rows, weeks }: { rows: GradeRow[]; weeks: string[]
             {sections.map((s) => (
               <tbody key={s.key}>
                 <tr className={SECTION}>
-                  <td colSpan={leftCols} className={`align-bottom text-[11px] font-semibold uppercase tracking-wider ${s.key === 'other' ? 'text-fg-2' : 'text-[#EA7A12]'}`}>
-                    {/* the title stays at the left while the weeks scroll under it; click to fold the group */}
+                  <td colSpan={leftCols} className="border-b border-line align-bottom">
+                    {/* like the dashboard's groups: the title stays at the left while the weeks scroll under it; click to
+                        fold the group */}
                     <button
                       type="button"
                       onClick={() => toggleGroup(s.key)}
                       aria-expanded={!collapsed[s.key]}
-                      className="sticky left-0 z-10 inline-flex items-center gap-1.5 bg-surface pr-2 text-left uppercase tracking-wider hover:opacity-80"
+                      className="sticky left-0 z-10 inline-flex items-center gap-2 whitespace-nowrap bg-surface pb-0.5 pr-3 text-left text-sm hover:opacity-80"
                     >
                       <span className={`text-fg-3 transition-transform ${collapsed[s.key] ? '' : 'rotate-90'}`}>›</span>
-                      {s.label} <span className="num ml-1 font-normal text-fg-3">{s.items.length}</span>
+                      <span className={`font-semibold ${s.key === 'other' ? '' : 'text-[#EA7A12]'}`}>{s.label}</span>
+                      <span className="num rounded-chip bg-line px-1.5 text-[11px] text-fg-2">{s.items.length}</span>
+                      {(() => {
+                        const b = band(s.items);
+                        return <span className="num text-[11px] text-fg-3">{b.under} undervalued · {b.normal} normal · {b.over} overvalued</span>;
+                      })()}
                     </button>
                   </td>
                 </tr>
@@ -232,7 +256,7 @@ export function GradesTable({ rows, weeks }: { rows: GradeRow[]; weeks: string[]
             </thead>
             {sections.map((s) => (
               <tbody key={s.key}>
-                <tr className={SECTION}><td colSpan={6} /></tr>
+                <tr className={SECTION}><td colSpan={6} className="border-b border-line" /></tr>
                 {!collapsed[s.key] && s.items.map((r) => (
                   <tr key={r.symbol} className={`${ROW} whitespace-nowrap`}>
                     <td className="pl-3 font-bold" style={{ color: BIAS_COLOR[r.rr?.potential_bias ?? ''] }}>{r.rr?.potential_bias ?? '-'}</td>
