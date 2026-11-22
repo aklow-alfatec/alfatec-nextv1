@@ -40,9 +40,12 @@ export async function prices(symbol: string, start: string): Promise<{ date: str
   return rows.map((r) => ({ date: iso(r.date), close: Number(r.close) }));
 }
 
-/** Date of the symbol's first stored grade (daily_indicator_json), or null when it has none. */
-export async function firstGradeDate(symbol: string): Promise<string | null> {
-  const [r] = await sql<{ d: Date | null }[]>`SELECT min(date) AS d FROM daily_indicator_json WHERE symbol = ${symbol}`;
+/** Date of the symbol's first stored grade, or null when it has none. `inactive`: an inactive pipeline's name, whose
+ *  grades are in pipeline_grades (migration M15) instead of daily_indicator_json. */
+export async function firstGradeDate(symbol: string, inactive?: string | null): Promise<string | null> {
+  const [r] = inactive
+    ? await sql<{ d: Date | null }[]>`SELECT min(date) AS d FROM pipeline_grades WHERE pipeline = ${inactive}`
+    : await sql<{ d: Date | null }[]>`SELECT min(date) AS d FROM daily_indicator_json WHERE symbol = ${symbol}`;
   return r?.d ? iso(r.d) : null;
 }
 
@@ -52,6 +55,21 @@ export async function activePipelineFor(symbol: string): Promise<{ name: string;
   if (!rows.length) return null;
   const d = (typeof rows[0].pipelinedata === 'string' ? JSON.parse(rows[0].pipelinedata) : rows[0].pipelinedata) as { name: string; nodes: PipelineNode[] };
   return { name: d.name, nodes: d.nodes ?? [], tags: rows[0].tags ?? [] };
+}
+
+/** Any pipeline by name, active or not (Studio -> All assets). */
+export async function pipelineByName(name: string): Promise<{ name: string; symbol: string; nodes: PipelineNode[]; tags: string[]; active: boolean } | null> {
+  const rows = await sql<{ name: string; symbol: string; pipelinedata: unknown; tags: string[] | null; active: boolean }[]>`
+    SELECT name, symbol, pipelinedata, tags, active FROM pipeline WHERE name = ${name} LIMIT 1`;
+  if (!rows.length) return null;
+  const d = (typeof rows[0].pipelinedata === 'string' ? JSON.parse(rows[0].pipelinedata) : rows[0].pipelinedata) as { symbol?: string; nodes: PipelineNode[] };
+  return { name: rows[0].name, symbol: d.symbol ?? rows[0].symbol, nodes: d.nodes ?? [], tags: rows[0].tags ?? [], active: rows[0].active };
+}
+
+/** The asset's pipelines (names, active first), for the grade comparison on the symbol page. */
+export async function pipelinesFor(symbol: string): Promise<{ name: string; active: boolean }[]> {
+  return sql<{ name: string; active: boolean }[]>`
+    SELECT name, active FROM pipeline WHERE symbol = ${symbol} ORDER BY active DESC, last_updated DESC NULLS LAST, name`;
 }
 
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
@@ -87,14 +105,19 @@ export interface WeekPayload {
   nodes: Record<string, unknown>;
 }
 
-/** One payload per Friday (latest row in the 6 days up to it), oldest first. */
-export async function weeklyPayloads(symbol: string, weeks: string[]): Promise<Record<string, WeekPayload>> {
+/** One payload per Friday (latest row in the 6 days up to it), oldest first. `inactive`: an inactive pipeline's
+ *  name; its grades come from pipeline_grades (migration M15). */
+export async function weeklyPayloads(symbol: string, weeks: string[], inactive?: string | null): Promise<Record<string, WeekPayload>> {
   if (!weeks.length) return {};
   const lo = new Date(`${weeks[0]}T00:00:00Z`);
   lo.setUTCDate(lo.getUTCDate() - 6);
-  const rows = await sql<{ date: Date; jsondata: unknown }[]>`
-    SELECT date, jsondata FROM daily_indicator_json
-    WHERE symbol = ${symbol} AND date >= ${lo.toISOString().slice(0, 10)} AND date <= ${weeks[weeks.length - 1]} ORDER BY date`;
+  const from = lo.toISOString().slice(0, 10);
+  const to = weeks[weeks.length - 1];
+  const rows = inactive
+    ? await sql<{ date: Date; jsondata: unknown }[]>`
+        SELECT date, jsondata FROM pipeline_grades WHERE pipeline = ${inactive} AND date >= ${from} AND date <= ${to} ORDER BY date`.catch(() => [])
+    : await sql<{ date: Date; jsondata: unknown }[]>`
+        SELECT date, jsondata FROM daily_indicator_json WHERE symbol = ${symbol} AND date >= ${from} AND date <= ${to} ORDER BY date`;
   const list = rows.map((r) => ({ date: iso(r.date), payload: r.jsondata }));
   const out: Record<string, WeekPayload> = {};
   for (const w of weeks) {

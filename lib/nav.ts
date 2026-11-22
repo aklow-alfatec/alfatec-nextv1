@@ -1,6 +1,6 @@
-export type NavItem = { label: string; href: string; full?: boolean };
+export type NavItem = { label: string; href: string; full?: boolean; admin?: boolean };
 /** `full`: only for accounts with full access; hidden in the guest view (lib/access.ts). On a group it hides the
- *  whole group, on an item just that item. */
+ *  whole group, on an item just that item. `admin` (items): admin and superadmin only, never in guest mode. */
 export type NavGroup = { title?: string; items: NavItem[]; full?: boolean };
 
 export const NAV: NavGroup[] = [
@@ -18,6 +18,7 @@ export const NAV: NavGroup[] = [
     title: 'Studio',
     full: true,
     items: [
+      { label: 'All assets', href: '/studio/assets', admin: true },
       { label: 'Graphs', href: '/studio/graphs' },
       { label: 'Runs', href: '/studio/runs' },
       { label: 'Experiments', href: '/studio/experiments' },
@@ -30,6 +31,7 @@ export const NAV: NavGroup[] = [
 ];
 export const ALL_NAV = NAV.flatMap((g) => g.items);
 
-/** The menu for this viewer: the guest view drops the full-access groups. */
-export const navFor = (guest: boolean): NavGroup[] =>
-  guest ? NAV.filter((g) => !g.full).map((g) => ({ ...g, items: g.items.filter((i) => !i.full) })) : NAV;
+/** The menu for this viewer: the guest view drops the full-access groups; admin items need `admin`. */
+export const navFor = (guest: boolean, admin = false): NavGroup[] =>
+  (guest ? NAV.filter((g) => !g.full).map((g) => ({ ...g, items: g.items.filter((i) => !i.full) })) : NAV)
+    .map((g) => ({ ...g, items: g.items.filter((i) => !i.admin || (admin && !guest)) }));

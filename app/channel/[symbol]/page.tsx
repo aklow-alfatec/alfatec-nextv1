@@ -24,15 +24,15 @@ const diff = (a: number | null, b: number | null) => (a === null || b === null |
  *  breakdown and the Dashboard's Limit breach rows (docs/featureAsk-002.md). Admin and superadmin only; anyone else
  *  gets not found. */
 export default async function ChannelPage({ params, searchParams }: {
-  params: Promise<{ symbol: string }>; searchParams: Promise<{ node?: string }>;
+  params: Promise<{ symbol: string }>; searchParams: Promise<{ node?: string; pipeline?: string }>;
 }) {
   const v = await currentViewer();
   if (!v || !isAdminRole(v.role)) notFound();
   const { symbol: raw } = await params;
-  const { node } = await searchParams;
+  const { node, pipeline } = await searchParams;
   const symbol = decodeURIComponent(raw);
   if (!node) notFound();
-  const data = await channelData(symbol, node);
+  const data = await channelData(symbol, node, pipeline);
   if (!data) notFound();
 
   const bad = data.fridays.filter((f) => !f.valueOk || !f.thresholdsOk);

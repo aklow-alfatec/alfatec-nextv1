@@ -12,6 +12,7 @@ export interface ShellAccess {
   guest: boolean;       // guest view (guest account, or a superadmin in guest mode)
   guestMode: boolean;   // a superadmin previewing the guest view
   superadmin: boolean;  // the account's real role
+  admin: boolean;       // admin or superadmin, effective role (false in guest mode)
 }
 
 function ThemeToggle() {
@@ -38,7 +39,7 @@ function ThemeToggle() {
   );
 }
 
-function Search({ guest }: { guest: boolean }) {
+function Search({ guest, admin }: { guest: boolean; admin: boolean }) {
   const [open, setOpen] = useState(false);
   const [q, setQ] = useState('');
   const ref = useRef<HTMLInputElement>(null);
@@ -60,7 +61,7 @@ function Search({ guest }: { guest: boolean }) {
       setTimeout(() => ref.current?.focus(), 0);
     }
   }, [open]);
-  const hits = navFor(guest).flatMap((g) => g.items).filter((i) => i.label.toLowerCase().includes(q.toLowerCase()));
+  const hits = navFor(guest, admin).flatMap((g) => g.items).filter((i) => i.label.toLowerCase().includes(q.toLowerCase()));
   const go = (href: string) => {
     router.push(href);
     setOpen(false);
@@ -122,7 +123,7 @@ export function AppShell({
             <LogoMark className="h-7 w-auto" />
             Menu
           </Button>
-          <Search guest={access.guest} />
+          <Search guest={access.guest} admin={access.admin} />
           <div className={access.guest ? 'ml-auto' : 'ml-auto hidden items-center gap-2 lg:flex'}>
             {!access.guest && <>
             <StatusPill status="idle" label="Prices" detail="n/a" />

@@ -11,6 +11,8 @@ export interface PlotSeries {
   v: (number | null)[];
   /** drawn lighter (middle band of Bollinger bands) */
   faint?: boolean;
+  /** drawn as a dotted line (grade pane: a compared pipeline's grade) */
+  dotted?: boolean;
 }
 
 export interface EquityData {

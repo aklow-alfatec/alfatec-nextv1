@@ -45,7 +45,7 @@ export function Sidebar({
           <Logo size={24} />
         </div>
         <nav className="flex-1 overflow-y-auto px-2 pb-4">
-          {navFor(access.guest).map((g, i) => (
+          {navFor(access.guest, access.admin).map((g, i) => (
             <div key={i} className="mt-4 first:mt-0">
               {g.title && (
                 <div className="px-2 pb-1 text-[11px] font-semibold uppercase tracking-wider text-[#EA7A12]">{g.title}</div>

@@ -83,6 +83,8 @@ export interface MultiPaneChartProps {
   trades?: TradeMark[] | null;
   /** pane titles instead of the defaults (layout.ts PANE_TITLES) */
   titles?: Partial<Record<PaneKind, string>>;
+  /** a legend beside a pane's title: each entry's `swatch` is a CSS background (a colour or a gradient) */
+  legends?: Partial<Record<PaneKind, { label: string; swatch: string }[]>>;
   /** extra readout lines for the hovered time (seconds), after the series values */
   extraRows?: (time: number) => ReadoutRow[];
   /** relative pane heights instead of the defaults (STRETCH), e.g. { price: 2.45, grade: 2.45 } for equal panes */
@@ -97,7 +99,7 @@ export interface MultiPaneChartProps {
 
 /** Price, grade %, 0-100, part-score, signal, other and equity panes on one time axis (lightweight-charts):
  *  drag to pan, wheel / pinch to zoom, double-click to reset, one crosshair and readout across panes. */
-export function MultiPaneChart({ series, equity, trades, titles, extraRows, stretch, heatmap, onHeatRow, heatRowEnabled, className }: MultiPaneChartProps) {
+export function MultiPaneChart({ series, equity, trades, titles, legends, extraRows, stretch, heatmap, onHeatRow, heatRowEnabled, className }: MultiPaneChartProps) {
   const host = useRef<HTMLDivElement>(null);
   const chartRef = useRef<IChartApi | null>(null);
   const rangeRef = useRef<{ from: Time; to: Time } | null>(null);
@@ -178,7 +180,8 @@ export function MultiPaneChart({ series, equity, trades, titles, extraRows, stre
           {
             ...lineBase,
             color: s.color,
-            lineWidth: first ? 2 : 1,
+            lineWidth: 2,
+            lineStyle: s.dotted ? LineStyle.Dotted : LineStyle.Solid,
             priceFormat: { type: 'custom', formatter: () => '', minMove: 1 },
             autoscaleInfoProvider: () => ({ priceRange: { minValue: 20, maxValue: 100 }, margins: { above: 0, below: 0 } }),
           },
@@ -371,6 +374,16 @@ export function MultiPaneChart({ series, equity, trades, titles, extraRows, stre
                   {equity.benchmark && <span className="inline-flex items-center gap-1"><i className="inline-block h-0.5 w-4 bg-fg-3" />Buy and hold</span>}
                 </span>
               )}
+              {legends?.[p.kind]?.length ? (
+                <span className="ml-3 inline-flex flex-wrap items-center gap-3 rounded-sm bg-surface/80 px-1 text-fg-2">
+                  {legends[p.kind]!.map((l) => (
+                    <span key={l.label} className="inline-flex items-center gap-1">
+                      <i className="inline-block h-[3px] w-5 rounded-full" style={{ background: l.swatch }} />
+                      {l.label}
+                    </span>
+                  ))}
+                </span>
+              ) : null}
             </span>
           ))}
           {heatBox && heatmap && heatmap.rows.map((name, r) =>

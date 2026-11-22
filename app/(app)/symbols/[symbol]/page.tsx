@@ -2,7 +2,8 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { Button, Card, GradeChip, PartScoreChip, ReadingTag } from '@/components/ui';
 import { fridays, lastFinalFriday } from '@/lib/grades';
-import { activePipelineFor, assetInfo, components, firstGradeDate, graphForPipeline, prices, runsForSymbol, weeklyPayloads } from '@/lib/symbols';
+import { activePipelineFor, assetInfo, components, firstGradeDate, graphForPipeline, pipelineByName, pipelinesFor, prices, runsForSymbol, weeklyPayloads } from '@/lib/symbols';
+import { CompareSelect } from './compare-select';
 import { SymbolChart } from './symbol-chart';
 import { maskedName } from '@/lib/access';
 import { currentViewer } from '@/lib/viewer';
@@ -19,35 +20,47 @@ const fmt = (v: unknown) =>
   typeof v === 'number' && Number.isFinite(v) ? v.toLocaleString(undefined, { maximumFractionDigits: Math.abs(v) < 1 ? 5 : Math.abs(v) < 100 ? 2 : 1 }) : '-';
 const pct = (v: number | null, d = 1) => (v === null ? '-' : `${(v * 100).toFixed(d)}%`);
 
-export default async function SymbolPage({ params, searchParams }: { params: Promise<{ symbol: string }>; searchParams: Promise<{ range?: string }> }) {
+export default async function SymbolPage({ params, searchParams }: { params: Promise<{ symbol: string }>; searchParams: Promise<{ range?: string; pipeline?: string; compare?: string }> }) {
   const { symbol: raw } = await params;
   const symbol = decodeURIComponent(raw);
-  const { range: r } = await searchParams;
+  const { range: r, pipeline: wanted, compare: compareName } = await searchParams;
   const range: Range = (r && r in RANGES ? r : '1y') as Range;
   const end = lastFinalFriday();
+
+  // guest view: no grade breakdown, runs, Studio links or data sources; part names masked as Indicator n
+  const viewer = await currentViewer();
+  const guest = viewer?.guest ?? true;
+  // the channel chart (docs/featureAsk-002.md) and other pipelines (Studio -> All assets) are for admin and
+  // superadmin only (the effective role: not in guest mode)
+  const admin = isAdminRole(viewer?.role);
+  // ?pipeline=NAME (admins): show that pipeline of this asset, active or not; anyone else gets the active one
+  const chosen = admin && wanted ? await pipelineByName(wanted) : null;
+  const other = chosen && chosen.symbol === symbol && !chosen.active ? chosen : null;   // an inactive pipeline
+  const inactive = other?.name ?? null;
+
   // ALL = the whole graded history (from the first grade), not the whole price history; no grades -> all prices
-  const gradedFrom = range === 'all' ? await firstGradeDate(symbol) : null;
+  const gradedFrom = range === 'all' ? await firstGradeDate(symbol, inactive) : null;
   const weeks = range === 'all' && gradedFrom
     ? fridays(end, Math.max(1, Math.floor((Date.parse(end) - Date.parse(gradedFrom)) / 604800000) + 1))
     : fridays(end, RANGES[range]);
   const heatWeeks = fridays(end, 54);
   const priceStart = range === 'all' ? (gradedFrom ? weeks[0] : '1900-01-01') : weeks[0];
 
-  // guest view: no grade breakdown, runs, Studio links or data sources; part names masked as Indicator n
-  const viewer = await currentViewer();
-  const guest = viewer?.guest ?? true;
-  // the channel chart (docs/featureAsk-002.md) is for admin and superadmin only (the effective role: not in guest mode)
-  const admin = isAdminRole(viewer?.role);
   const [asset, pipe, px, weekly, heat, runs, year] = await Promise.all([
     assetInfo(symbol),
-    activePipelineFor(symbol),
+    other ? Promise.resolve(other) : activePipelineFor(symbol),
     prices(symbol, priceStart),
-    weeklyPayloads(symbol, weeks),
-    weeklyPayloads(symbol, heatWeeks),
+    weeklyPayloads(symbol, weeks, inactive),
+    weeklyPayloads(symbol, heatWeeks, inactive),
     guest ? Promise.resolve([] as Awaited<ReturnType<typeof runsForSymbol>>) : runsForSymbol(symbol),
     prices(symbol, fridays(end, 52)[0]),
   ]);
   if (!asset && !pipe && px.length === 0) notFound();
+  const live = inactive ? await activePipelineFor(symbol) : null;
+  // a second grade line from another pipeline of this asset (admins, ?compare=NAME)
+  const siblings = admin ? (await pipelinesFor(symbol)).filter((p) => p.name !== pipe?.name) : [];
+  const cmp = compareName ? siblings.find((p) => p.name === compareName) ?? null : null;
+  const cmpWeekly = cmp ? await weeklyPayloads(symbol, weeks, cmp.active ? null : cmp.name) : null;
   const graph = pipe && !guest ? await graphForPipeline(pipe.name) : null;
   const parts = pipe ? components(pipe.nodes) : [];
   const channels = admin && pipe ? channelNodes(pipe.nodes) : new Set<string>();
@@ -58,7 +71,8 @@ export default async function SymbolPage({ params, searchParams }: { params: Pro
   const delta = cur?.grade != null && prev?.grade != null ? Math.round(cur.grade) - Math.round(prev.grade) : null;
   const last = px.length ? px[px.length - 1] : null;
   const yr = year.map((p) => p.close);
-  const link = (x: Range) => `/symbols/${encodeURIComponent(symbol)}?range=${x}`;
+  const link = (x: Range) =>
+    `/symbols/${encodeURIComponent(symbol)}?range=${x}${inactive ? `&pipeline=${encodeURIComponent(inactive)}` : ''}${cmp ? `&compare=${encodeURIComponent(cmp.name)}` : ''}`;
   const nodeVal = (nodes: Record<string, unknown> | undefined, k: string | null) => {
     if (!nodes || !k) return null;
     const v = nodes[k];
@@ -81,7 +95,18 @@ export default async function SymbolPage({ params, searchParams }: { params: Pro
 
   return (
     <div className="space-y-4 p-4 md:p-6">
-      <div className="text-sm text-fg-2"><Link href="/grades" className="hover:underline">Grades</Link> / {symbol}</div>
+      <div className="text-sm text-fg-2">
+        {inactive ? <Link href="/studio/assets" className="hover:underline">All assets</Link> : <Link href="/grades" className="hover:underline">Grades</Link>} / {symbol}
+        {inactive && <> / {inactive}</>}
+      </div>
+      {inactive && (
+        <div className="rounded-card border border-warning/40 bg-warning/10 px-3 py-2 text-sm">
+          <span className="font-semibold text-warning">Inactive pipeline {inactive}</span>
+          <span className="text-fg-2"> · not live: the Dashboard, Grades and alerts use {live ? live.name : 'no pipeline'} for {symbol}. Its weekly grades are
+            computed by the backend every Friday.</span>
+          {live && <Link href={`/symbols/${encodeURIComponent(symbol)}`} className="ml-2 text-accent hover:underline">Open {live.name} →</Link>}
+        </div>
+      )}
       <div className="flex flex-wrap items-start gap-4">
         <div>
           <h1 className="text-2xl font-semibold">{symbol}</h1>
@@ -118,10 +143,13 @@ export default async function SymbolPage({ params, searchParams }: { params: Pro
       <Card
         title="Price and grade"
         actions={
-          <div className="flex overflow-hidden rounded-control border border-line-2 text-xs">
-            {(Object.keys(RANGES) as Range[]).map((x) => (
-              <Link key={x} href={link(x)} className={`px-2 py-1 ${x === range ? 'bg-raised text-fg' : 'text-fg-2 hover:text-fg'}`}>{x.toUpperCase()}</Link>
-            ))}
+          <div className="flex flex-wrap items-center gap-2">
+            {siblings.length > 0 && <CompareSelect options={siblings} current={cmp?.name ?? null} />}
+            <div className="flex overflow-hidden rounded-control border border-line-2 text-xs">
+              {(Object.keys(RANGES) as Range[]).map((x) => (
+                <Link key={x} href={link(x)} className={`px-2 py-1 ${x === range ? 'bg-raised text-fg' : 'text-fg-2 hover:text-fg'}`}>{x.toUpperCase()}</Link>
+              ))}
+            </div>
           </div>
         }
       >
@@ -129,7 +157,10 @@ export default async function SymbolPage({ params, searchParams }: { params: Pro
           prices={px}
           weekly={weeks.map((w) => ({ date: w, grade: weekly[w]?.grade ?? null, reading: weekly[w]?.reading ?? null }))}
           heatmap={heatmap}
+          gradeName={pipe?.name ?? null}
+          compare={cmp && cmpWeekly ? { name: cmp.name, weekly: weeks.map((w) => ({ date: w, grade: cmpWeekly[w]?.grade ?? null })) } : null}
           symbol={symbol}
+          pipeline={inactive}
           channelNodes={admin && heatmap ? parts.map((c) => (channels.has(c.node) ? c.node : null)) : undefined}
         />
       </Card>
@@ -153,7 +184,7 @@ export default async function SymbolPage({ params, searchParams }: { params: Pro
                   return (
                     <tr key={c.node} className="border-t border-line">
                       <td className="py-1.5 font-medium">
-                        {channels.has(c.node) ? <ChannelButton symbol={symbol} node={c.node} label={c.node.replace(/_GRADE$/, '')} /> : c.node.replace(/_GRADE$/, '')}
+                        {channels.has(c.node) ? <ChannelButton symbol={symbol} node={c.node} pipeline={inactive} label={c.node.replace(/_GRADE$/, '')} /> : c.node.replace(/_GRADE$/, '')}
                       </td>
                       <td className="py-1.5 text-xs text-fg-2">{c.describe}</td>
                       <td className="num py-1.5 text-right">{fmt(nodeVal(cur?.nodes, c.input) ?? nodeVal(cur?.nodes, c.node))}</td>

@@ -7,7 +7,7 @@ import {
   type ChannelParams, type InputKind, type PricePoint,
 } from '@/lib/channel';
 import { DEFAULT_RANGE } from '@/lib/limit-alert-rules';
-import { activePipelineFor } from '@/lib/symbols';
+import { activePipelineFor, pipelineByName } from '@/lib/symbols';
 
 /** The backend's stale-price allowance (pipeline_service: PRICE_WINDOW_DAYS, MAX_AGE_DAYS). */
 const PRICE_WINDOW_DAYS = 150;
@@ -68,8 +68,13 @@ async function lagDays(symbols: string[]): Promise<Record<string, number>> {
   return Object.fromEntries(rows.map((r) => [r.symbol, Number(r.lag ?? 0)]));
 }
 
-export async function channelData(symbol: string, node: string): Promise<ChannelData | null> {
-  const pipe = await activePipelineFor(symbol);
+/** `pipelineName`: an inactive pipeline of this asset (Studio -> All assets); its stored Fridays come from
+ *  pipeline_grades and it has no limit-breach rows. Omitted: the asset's active pipeline. */
+export async function channelData(symbol: string, node: string, pipelineName?: string | null): Promise<ChannelData | null> {
+  const named = pipelineName ? await pipelineByName(pipelineName) : null;
+  if (pipelineName && (!named || named.symbol !== symbol)) return null;
+  const inactive = named && !named.active ? named.name : null;
+  const pipe = named ?? (await activePipelineFor(symbol));
   if (!pipe) return null;
   const grader = pipe.nodes.find((n) => n.outnode === node && n.cmd === 'linearGraderTimeVaryingChain');
   const input = grader && pipe.nodes.find((n) => n.outnode === String(grader.params?.in1) && n.cmd in KINDS);
@@ -84,10 +89,14 @@ export async function channelData(symbol: string, node: string): Promise<Channel
     closes(in1),
     in2 ? closes(in2) : Promise.resolve([] as PricePoint[]),
     lagDays(in2 ? [in1, in2] : [in1]),
-    sql<{ date: Date; n: unknown }[]>`
-      SELECT date, (jsondata::jsonb) -> 'nodes' -> ${node} AS n FROM daily_indicator_json WHERE symbol = ${symbol} ORDER BY date`,
-    sql<{ week: Date; side: 'cheap' | 'expensive'; excess: number; is_new: boolean; check_data: boolean }[]>`
-      SELECT week, side, excess, is_new, check_data FROM limit_alerts WHERE symbol = ${symbol} AND node = ${node} ORDER BY week`.catch(() => []),
+    inactive
+      ? sql<{ date: Date; n: unknown }[]>`SELECT date, jsondata -> 'nodes' -> ${node} AS n FROM pipeline_grades WHERE pipeline = ${inactive} ORDER BY date`
+      : sql<{ date: Date; n: unknown }[]>`SELECT date, (jsondata::jsonb) -> 'nodes' -> ${node} AS n FROM daily_indicator_json WHERE symbol = ${symbol} ORDER BY date`,
+    // limit-breach alerts are kept for the active pipeline only
+    inactive
+      ? Promise.resolve([] as { week: Date; side: 'cheap' | 'expensive'; excess: number; is_new: boolean; check_data: boolean }[])
+      : sql<{ week: Date; side: 'cheap' | 'expensive'; excess: number; is_new: boolean; check_data: boolean }[]>`
+          SELECT week, side, excess, is_new, check_data FROM limit_alerts WHERE symbol = ${symbol} AND node = ${node} ORDER BY week`.catch(() => []),
     sql<{ own: number | null; global: unknown }[]>`
       SELECT (SELECT alert_range FROM pipeline WHERE name = ${pipe.name}) AS own,
              (SELECT value FROM app_settings WHERE key = 'limit_alert.range') AS global`.catch(() => []),
