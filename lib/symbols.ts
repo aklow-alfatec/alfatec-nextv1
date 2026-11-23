@@ -107,17 +107,31 @@ export interface WeekPayload {
 
 /** One payload per Friday (latest row in the 6 days up to it), oldest first. `inactive`: an inactive pipeline's
  *  name; its grades come from pipeline_grades (migration M15). */
-export async function weeklyPayloads(symbol: string, weeks: string[], inactive?: string | null): Promise<Record<string, WeekPayload>> {
+export async function weeklyPayloads(symbol: string, weeks: string[], inactive?: string | null, mode: 'values' | 'grades' = 'values'): Promise<Record<string, WeekPayload>> {
   if (!weeks.length) return {};
   const lo = new Date(`${weeks[0]}T00:00:00Z`);
   lo.setUTCDate(lo.getUTCDate() - 6);
   const from = lo.toISOString().slice(0, 10);
   const to = weeks[weeks.length - 1];
+  // trimmed in the database. 'values': the payload without each grader's 4 thresholds (about half its size).
+  // 'grades' (long chart ranges): only each component's score, the daily grade and the reading
+  const slim = (j: ReturnType<typeof sql>) => mode === 'grades'
+    ? sql`
+    jsonb_build_object('nodes', coalesce((SELECT jsonb_object_agg(k, CASE
+        WHEN right(k, 12) = '_DAILY_GRADE' OR right(k, 10) = '_DAILY_IND' THEN v
+        WHEN jsonb_typeof(v) = 'object' THEN jsonb_build_object('grade', v -> 'grade')
+        ELSE v END)
+      FROM jsonb_each(${j} -> 'nodes') e(k, v) WHERE right(k, 5) = 'GRADE' OR right(k, 10) = '_DAILY_IND'), '{}'::jsonb))`
+    : sql`
+    jsonb_build_object('nodes', coalesce((SELECT jsonb_object_agg(k, CASE WHEN jsonb_typeof(v) = 'object' THEN v - 'thresholds' ELSE v END)
+                                          FROM jsonb_each(${j} -> 'nodes') e(k, v)), '{}'::jsonb))`;
   const rows = inactive
     ? await sql<{ date: Date; jsondata: unknown }[]>`
-        SELECT date, jsondata FROM pipeline_grades WHERE pipeline = ${inactive} AND date >= ${from} AND date <= ${to} ORDER BY date`.catch(() => [])
+        SELECT date, ${slim(sql`jsondata`)} AS jsondata FROM pipeline_grades
+        WHERE pipeline = ${inactive} AND date >= ${from} AND date <= ${to} ORDER BY date`.catch(() => [])
     : await sql<{ date: Date; jsondata: unknown }[]>`
-        SELECT date, jsondata FROM daily_indicator_json WHERE symbol = ${symbol} AND date >= ${from} AND date <= ${to} ORDER BY date`;
+        SELECT date, ${slim(sql`jsondata::jsonb`)} AS jsondata FROM daily_indicator_json
+        WHERE symbol = ${symbol} AND date >= ${from} AND date <= ${to} ORDER BY date`;
   const list = rows.map((r) => ({ date: iso(r.date), payload: r.jsondata }));
   const out: Record<string, WeekPayload> = {};
   for (const w of weeks) {

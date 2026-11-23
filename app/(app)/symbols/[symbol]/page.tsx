@@ -50,8 +50,9 @@ export default async function SymbolPage({ params, searchParams }: { params: Pro
     assetInfo(symbol),
     other ? Promise.resolve(other) : activePipelineFor(symbol),
     prices(symbol, priceStart),
-    weeklyPayloads(symbol, weeks, inactive),
-    weeklyPayloads(symbol, heatWeeks, inactive),
+    // the chart range needs scores only; this week and last week (the breakdown table) need the values too
+    weeklyPayloads(symbol, weeks, inactive, 'grades'),
+    weeklyPayloads(symbol, heatWeeks.slice(-2), inactive),
     guest ? Promise.resolve([] as Awaited<ReturnType<typeof runsForSymbol>>) : runsForSymbol(symbol),
     prices(symbol, fridays(end, 52)[0]),
   ]);
@@ -60,7 +61,7 @@ export default async function SymbolPage({ params, searchParams }: { params: Pro
   // a second grade line from another pipeline of this asset (admins, ?compare=NAME)
   const siblings = admin ? (await pipelinesFor(symbol)).filter((p) => p.name !== pipe?.name) : [];
   const cmp = compareName ? siblings.find((p) => p.name === compareName) ?? null : null;
-  const cmpWeekly = cmp ? await weeklyPayloads(symbol, weeks, cmp.active ? null : cmp.name) : null;
+  const cmpWeekly = cmp ? await weeklyPayloads(symbol, weeks, cmp.active ? null : cmp.name, 'grades') : null;
   const graph = pipe && !guest ? await graphForPipeline(pipe.name) : null;
   const parts = pipe ? components(pipe.nodes) : [];
   const channels = admin && pipe ? channelNodes(pipe.nodes) : new Set<string>();

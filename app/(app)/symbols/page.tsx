@@ -14,9 +14,10 @@ export default async function AssetsPage() {
     latestGrades(symbols, lastFinalFriday()),
     symbols.length
       ? sql<{ symbol: string; date: Date; close: string; name: string | null }[]>`
-          SELECT DISTINCT ON (s.symbol) s.symbol, s.date, s.last_close AS close, a.name
-          FROM stock_data s LEFT JOIN assets a ON a.symbol = s.symbol
-          WHERE s.symbol IN ${sql(symbols)} ORDER BY s.symbol, s.date DESC`
+          SELECT x.symbol, x.date, x.last_close AS close, a.name
+          FROM unnest(${sql.array(symbols)}::text[]) AS u(sym)
+          CROSS JOIN LATERAL (SELECT symbol, date, last_close FROM stock_data WHERE symbol = u.sym ORDER BY date DESC LIMIT 1) x
+          LEFT JOIN assets a ON a.symbol = x.symbol`
       : Promise.resolve([]),
   ]);
   const close = new Map(closes.map((c) => [c.symbol, c]));

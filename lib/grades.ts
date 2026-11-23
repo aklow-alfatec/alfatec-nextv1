@@ -61,6 +61,30 @@ export function gradeFromJson(payload: unknown): number | null {
   return hasMax && max > 0 ? (value / max) * 100 : null;
 }
 
+/** gradeFromJson from the slim columns the queries below extract in the database (`daily` = the *_DAILY_GRADE node,
+ *  `parts` = the number of component *_GRADE nodes), so a page never downloads the whole stored payload. */
+export function gradeFromSlim(daily: unknown, parts: number | null): number | null {
+  let value = 0;
+  let max = 0;
+  let hasMax = false;
+  if (daily && typeof daily === 'object') {
+    value = num((daily as Record<string, unknown>).value) ?? 0;
+    if ('max' in (daily as object)) {
+      max = num((daily as Record<string, unknown>).max) ?? 0;
+      hasMax = true;
+    }
+  } else if (daily !== null && daily !== undefined) {
+    value = num(daily) ?? 0;
+  }
+  if (!hasMax && (parts ?? 0) > 0) {
+    max = (parts as number) * 5;
+    hasMax = true;
+  }
+  return hasMax && max > 0 ? (value / max) * 100 : null;
+}
+
+type SlimRow = { symbol: string; date: Date; daily: unknown; ind: unknown; parts: number | null };
+
 export function readingFromJson(payload: unknown, symbol: string): number | null {
   return num(parse(payload)?.nodes?.[`${symbol}_DAILY_IND`]);
 }
@@ -106,14 +130,19 @@ export async function weeklyGrades(symbols: string[], weeks: string[]): Promise<
   if (!symbols.length || !weeks.length) return out;
   const first = new Date(`${weeks[0]}T00:00:00Z`);
   first.setUTCDate(first.getUTCDate() - 6);
-  const rows = await sql<{ symbol: string; date: Date; jsondata: unknown }[]>`
-    SELECT symbol, date, jsondata FROM daily_indicator_json
-    WHERE symbol IN ${sql(symbols)} AND date >= ${first.toISOString().slice(0, 10)} AND date <= ${weeks[weeks.length - 1]}
+  // only the daily grade, the reading and the part count leave the database (not the ~1 KB payload per row)
+  const rows = await sql<SlimRow[]>`
+    SELECT symbol, date,
+      (SELECT v FROM jsonb_each(j -> 'nodes') e(k, v) WHERE right(k, 12) = '_DAILY_GRADE' LIMIT 1) AS daily,
+      j -> 'nodes' -> (symbol || '_DAILY_IND') AS ind,
+      (SELECT count(*)::int FROM jsonb_object_keys(j -> 'nodes') k WHERE right(k, 5) = 'GRADE' AND right(k, 11) <> 'DAILY_GRADE') AS parts
+    FROM (SELECT symbol, date, jsondata::jsonb AS j FROM daily_indicator_json
+          WHERE symbol IN ${sql(symbols)} AND date >= ${first.toISOString().slice(0, 10)} AND date <= ${weeks[weeks.length - 1]}) x
     ORDER BY symbol, date`;
-  const bySym = new Map<string, { date: string; jsondata: unknown }[]>();
+  const bySym = new Map<string, { date: string; grade: number | null; reading: number | null }[]>();
   for (const r of rows) {
     const list = bySym.get(r.symbol) ?? [];
-    list.push({ date: iso(r.date), jsondata: r.jsondata });
+    list.push({ date: iso(r.date), grade: gradeFromSlim(r.daily, r.parts), reading: num(r.ind) });
     bySym.set(r.symbol, list);
   }
   for (const s of symbols) {
@@ -123,7 +152,7 @@ export async function weeklyGrades(symbols: string[], weeks: string[]): Promise<
       lo.setUTCDate(lo.getUTCDate() - 6);
       const loS = lo.toISOString().slice(0, 10);
       const hit = [...list].reverse().find((r) => r.date <= w && r.date >= loS);
-      if (hit) out[s][w] = { date: hit.date, grade: gradeFromJson(hit.jsondata), reading: readingFromJson(hit.jsondata, s) };
+      if (hit) out[s][w] = { date: hit.date, grade: hit.grade, reading: hit.reading };
     }
   }
   return out;
@@ -132,12 +161,15 @@ export async function weeklyGrades(symbols: string[], weeks: string[]): Promise<
 /** Latest row per symbol on or before `maxDate` (the nextv0 overview cards). */
 export async function latestGrades(symbols: string[], maxDate: string): Promise<Record<string, GradeCell>> {
   if (!symbols.length) return {};
-  const rows = await sql<{ symbol: string; date: Date; jsondata: unknown }[]>`
-    SELECT t.symbol, t.date, t.jsondata
-    FROM (SELECT symbol, MAX(date) AS max_date FROM daily_indicator_json
-          WHERE symbol IN ${sql(symbols)} AND date <= ${maxDate} GROUP BY symbol) m
-    JOIN daily_indicator_json t ON t.symbol = m.symbol AND t.date = m.max_date`;
-  return Object.fromEntries(rows.map((r) => [r.symbol, { date: iso(r.date), grade: gradeFromJson(r.jsondata), reading: readingFromJson(r.jsondata, r.symbol) }]));
+  const rows = await sql<SlimRow[]>`
+    SELECT symbol, date,
+      (SELECT v FROM jsonb_each(j -> 'nodes') e(k, v) WHERE right(k, 12) = '_DAILY_GRADE' LIMIT 1) AS daily,
+      j -> 'nodes' -> (symbol || '_DAILY_IND') AS ind,
+      (SELECT count(*)::int FROM jsonb_object_keys(j -> 'nodes') k WHERE right(k, 5) = 'GRADE' AND right(k, 11) <> 'DAILY_GRADE') AS parts
+    FROM unnest(${sql.array(symbols)}::text[]) AS s(sym)
+    CROSS JOIN LATERAL (SELECT symbol, date, jsondata::jsonb AS j FROM daily_indicator_json
+                        WHERE symbol = s.sym AND date <= ${maxDate} ORDER BY date DESC LIMIT 1) x`;
+  return Object.fromEntries(rows.map((r) => [r.symbol, { date: iso(r.date), grade: gradeFromSlim(r.daily, r.parts), reading: num(r.ind) }]));
 }
 
 /** Full JSON payload (all node values) for one symbol and date (symbol page breakdown). */
@@ -182,11 +214,16 @@ export async function ongoingAlerts(symbols: string[], prev: string, cur: string
 /** Component grades (nodes ending `_GRADE`, 1..5) that changed between two Fridays (nextv0 changes monitor). */
 export async function componentChanges(symbols: string[], prev: string, cur: string): Promise<NodeChange[]> {
   if (!symbols.length) return [];
-  const rows = await sql<{ symbol: string; date: Date; jsondata: unknown }[]>`
-    SELECT symbol, date, jsondata FROM daily_indicator_json
+  // only each component's score leaves the database: {node: {grade}}
+  const rows = await sql<{ symbol: string; date: Date; nodes: Record<string, unknown> | null }[]>`
+    SELECT symbol, date,
+      (SELECT jsonb_object_agg(k, CASE WHEN jsonb_typeof(v) = 'object' THEN jsonb_build_object('grade', v -> 'grade') ELSE 'null'::jsonb END)
+         FROM jsonb_each(jsondata::jsonb -> 'nodes') e(k, v)
+         WHERE right(k, 6) = '_GRADE' AND right(k, 11) <> 'DAILY_GRADE') AS nodes
+    FROM daily_indicator_json
     WHERE symbol IN ${sql(symbols)} AND date IN ${sql([prev, cur])}`;
   const by = new Map<string, Record<string, unknown>>();
-  for (const r of rows) by.set(`${r.symbol}|${iso(r.date)}`, (parse(r.jsondata)?.nodes ?? {}) as Record<string, unknown>);
+  for (const r of rows) by.set(`${r.symbol}|${iso(r.date)}`, (parse(r.nodes) ?? {}) as Record<string, unknown>);
   const g = (v: unknown) => (v && typeof v === 'object' ? num((v as Record<string, unknown>).grade) : null);
   const out: NodeChange[] = [];
   for (const s of symbols) {
