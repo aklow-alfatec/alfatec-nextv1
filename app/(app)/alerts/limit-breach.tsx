@@ -68,9 +68,9 @@ export function LimitBreach({ items, date, titles, canOpenChannel = false }: {
   );
 
   return (
-    <section className="rounded-card border border-warning/40 bg-warning/5" aria-label="Limit breach">
-      <div className="flex flex-wrap items-baseline gap-x-3 border-b border-warning/30 px-4 py-2">
-        <h2 className="text-base font-semibold text-warning">Limit breach</h2>
+    <section className="rounded-card border border-line bg-surface" aria-label="Limit breach">
+      <div className="flex flex-wrap items-baseline gap-x-3 border-b border-line px-4 py-2">
+        <h2 className="text-base font-semibold text-fg">Limit breach</h2>
         <span className="text-xs text-fg-2">
           {items.length} pair{items.length === 1 ? '' : 's'} beyond a channel line by more than {ranges.length === 1 ? pct(ranges[0]) : 'the alert range'} of its width
           {nNew > 0 ? `, ${nNew} new` : ''} · {fmtDay(date)}

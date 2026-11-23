@@ -61,9 +61,9 @@ export function OngoingAlert({ items, prevDate, date }: { items: AlertItem[]; pr
   );
 
   return (
-    <section className="rounded-card border border-negative/40 bg-negative/5" aria-label="Ongoing alert">
-      <div className="flex flex-wrap items-baseline gap-x-3 border-b border-negative/30 px-4 py-2">
-        <h2 className="text-base font-semibold text-negative">Ongoing alert</h2>
+    <section className="rounded-card border border-line bg-surface" aria-label="Ongoing alert">
+      <div className="flex flex-wrap items-baseline gap-x-3 border-b border-line px-4 py-2">
+        <h2 className="text-base font-semibold text-fg">Ongoing alert</h2>
         <span className="text-xs text-fg-2">
           {items.length} component grade{items.length === 1 ? '' : 's'} moved by more than 1 point, {fmtDay(prevDate)} → {fmtDay(date)}
         </span>

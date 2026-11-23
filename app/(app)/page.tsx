@@ -1,9 +1,13 @@
 import Link from 'next/link';
 import { Card, GradeChip, ReadingTag, Sparkline } from '@/components/ui';
 import sql from '@/lib/db';
-import { activePipelines, fridays, lastFinalFriday, weeklyGrades } from '@/lib/grades';
+import { activePipelines, fridays, lastFinalFriday, ongoingAlerts, weeklyGrades } from '@/lib/grades';
 import { displayTags, groupBySection } from '@/lib/sections';
 import { currentViewer } from '@/lib/viewer';
+import { limitBreaches } from '@/lib/limit-alerts';
+import { isAdminRole } from '@/lib/session-user';
+import { LimitBreach } from './alerts/limit-breach';
+import { OngoingAlert } from './alerts/ongoing-alert';
 
 export const dynamic = 'force-dynamic';
 
@@ -67,9 +71,11 @@ export default async function OverviewPage({ searchParams }: { searchParams: Pro
   const prev = weeks[weeks.length - 2];
   const viewer = await currentViewer();
   const guest = viewer?.guest ?? true;
-  // the guest view shows grades only: no data health or Studio activity (not even queried). The week's alerts are on
-  // their own page (/alerts).
-  const [grid, health, feed] = await Promise.all([weeklyGrades(symbols, weeks), guest ? null : dataHealth(symbols), guest ? [] : recent()]);
+  const admin = isAdminRole(viewer?.role);
+  // the guest view shows grades only: no data health or Studio activity (not even queried)
+  // the guest view never sees component names, so no alerts for it (not even queried); also on their own page (/alerts)
+  const [grid, health, feed, alerts, breaches] = await Promise.all([weeklyGrades(symbols, weeks), guest ? null : dataHealth(symbols), guest ? [] : recent(), guest ? [] : ongoingAlerts(symbols, prev, week), guest ? [] : limitBreaches(week)]);
+  const titles = new Map(pipes.map((p) => [p.symbol, p.title]));
 
   const rows = pipes.map((p) => {
     const cur = grid[p.symbol]?.[week];
@@ -107,6 +113,15 @@ export default async function OverviewPage({ searchParams }: { searchParams: Pro
         </div>
       </div>
 
+      {alerts.length > 0 && (
+        <OngoingAlert
+          prevDate={prev}
+          date={week}
+          items={alerts.map((a) => ({ symbol: a.symbol, title: titles.get(a.symbol) ?? a.symbol, part: a.node.replace(/_GRADE$/, ''), from: a.from as number, to: a.to as number, delta: a.delta }))}
+        />
+      )}
+
+      {breaches.length > 0 && <LimitBreach items={breaches} date={week} titles={Object.fromEntries(titles)} canOpenChannel={admin} />}
 
       <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
         {[
