@@ -1,7 +1,7 @@
 'use client';
 import Link from 'next/link';
 import { PartScoreChip } from '@/components/ui';
-import { DayDetailsDialog, useDayDetails } from './grades/day-details-dialog';
+import { DayDetailsDialog, useDayDetails } from '../grades/day-details-dialog';
 
 export interface AlertItem {
   symbol: string;

@@ -2,7 +2,7 @@
 import Link from 'next/link';
 import { openChannel } from '@/lib/channel-link';
 import { pct, type BreachRow } from '@/lib/limit-alert-rules';
-import { DayDetailsDialog, useDayDetails } from './grades/day-details-dialog';
+import { DayDetailsDialog, useDayDetails } from '../grades/day-details-dialog';
 
 const fmtDay = (d: string) => new Date(`${d}T00:00:00Z`).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'UTC' });
 const fmtNum = (v: number) => v.toLocaleString(undefined, { maximumFractionDigits: Math.abs(v) < 1 ? 4 : Math.abs(v) < 100 ? 2 : 0 });

@@ -11,6 +11,7 @@ export const NAV: NavGroup[] = [
       { label: 'Grades', href: '/grades' },
       { label: 'Assets', href: '/symbols' },
       { label: 'Trades', href: '/trades' },
+      { label: 'Alerts', href: '/alerts', full: true },
       { label: 'Backtest', href: '/backtest' },
     ],
   },

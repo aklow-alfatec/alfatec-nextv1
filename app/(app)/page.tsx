@@ -1,13 +1,9 @@
 import Link from 'next/link';
 import { Card, GradeChip, ReadingTag, Sparkline } from '@/components/ui';
 import sql from '@/lib/db';
-import { activePipelines, fridays, lastFinalFriday, ongoingAlerts, weeklyGrades } from '@/lib/grades';
+import { activePipelines, fridays, lastFinalFriday, weeklyGrades } from '@/lib/grades';
 import { displayTags, groupBySection } from '@/lib/sections';
 import { currentViewer } from '@/lib/viewer';
-import { limitBreaches } from '@/lib/limit-alerts';
-import { isAdminRole } from '@/lib/session-user';
-import { LimitBreach } from './limit-breach';
-import { OngoingAlert } from './ongoing-alert';
 
 export const dynamic = 'force-dynamic';
 
@@ -19,14 +15,20 @@ const shift = (d: string, days: number) => {
 };
 
 async function dataHealth(priceSymbols: string[]) {
-  const q = (where: ReturnType<typeof sql>) => sql<{ last: Date | null }[]>`SELECT MAX(date) AS last FROM stock_data WHERE ${where}`;
+  // newest row per symbol through the (symbol, date) index: one index probe each instead of scanning the table
+  const latest = (symbols: string[]) => symbols.length
+    ? sql<{ symbol: string; last: Date }[]>`
+        SELECT s.sym AS symbol, x.date AS last FROM unnest(${sql.array(symbols)}::text[]) AS s(sym)
+        CROSS JOIN LATERAL (SELECT date FROM stock_data WHERE symbol = s.sym ORDER BY date DESC LIMIT 1) x`
+    : Promise.resolve([] as { symbol: string; last: Date }[]);
   const [prices, cot, macro, naaim] = await Promise.all([
-    priceSymbols.length ? sql<{ symbol: string; last: Date }[]>`
-      SELECT symbol, MAX(date) AS last FROM stock_data WHERE symbol IN ${sql(priceSymbols)} GROUP BY symbol` : Promise.resolve([]),
-    q(sql`symbol LIKE 'COT\\_%'`),
-    sql<{ symbol: string; last: Date }[]>`
-      SELECT symbol, MAX(date) AS last FROM stock_data WHERE symbol IN ('M2SL', 'FRED_CPIAUCSL', 'FRED_GACDFSA066MSFRBPHI') GROUP BY symbol`,
-    q(sql`symbol = 'NAAIM'`),
+    latest(priceSymbols),
+    sql<{ last: Date | null }[]>`
+      SELECT max(x.date) AS last FROM assets a
+      CROSS JOIN LATERAL (SELECT date FROM stock_data WHERE symbol = a.symbol ORDER BY date DESC LIMIT 1) x
+      WHERE a.symbol LIKE 'COT\\_%'`,
+    latest(['M2SL', 'FRED_CPIAUCSL', 'FRED_GACDFSA066MSFRBPHI']),
+    latest(['NAAIM']).then((r) => [{ last: r[0]?.last ?? null }]),
   ]);
   const iso = (d: Date | null | undefined) => (d ? new Date(d).toISOString().slice(0, 10) : null);
   const priceDates = prices.map((r) => iso(r.last)!).sort();
@@ -65,11 +67,9 @@ export default async function OverviewPage({ searchParams }: { searchParams: Pro
   const prev = weeks[weeks.length - 2];
   const viewer = await currentViewer();
   const guest = viewer?.guest ?? true;
-  const admin = isAdminRole(viewer?.role);
-  // the guest view shows grades only: no data health or Studio activity (not even queried)
-  // the guest view never sees component names, so no alerts for it (not even queried)
-  const [grid, health, feed, alerts, breaches] = await Promise.all([weeklyGrades(symbols, weeks), guest ? null : dataHealth(symbols), guest ? [] : recent(), guest ? [] : ongoingAlerts(symbols, prev, week), guest ? [] : limitBreaches(week)]);
-  const titles = new Map(pipes.map((p) => [p.symbol, p.title]));
+  // the guest view shows grades only: no data health or Studio activity (not even queried). The week's alerts are on
+  // their own page (/alerts).
+  const [grid, health, feed] = await Promise.all([weeklyGrades(symbols, weeks), guest ? null : dataHealth(symbols), guest ? [] : recent()]);
 
   const rows = pipes.map((p) => {
     const cur = grid[p.symbol]?.[week];
@@ -107,15 +107,6 @@ export default async function OverviewPage({ searchParams }: { searchParams: Pro
         </div>
       </div>
 
-      {alerts.length > 0 && (
-        <OngoingAlert
-          prevDate={prev}
-          date={week}
-          items={alerts.map((a) => ({ symbol: a.symbol, title: titles.get(a.symbol) ?? a.symbol, part: a.node.replace(/_GRADE$/, ''), from: a.from as number, to: a.to as number, delta: a.delta }))}
-        />
-      )}
-
-      {breaches.length > 0 && <LimitBreach items={breaches} date={week} titles={Object.fromEntries(titles)} canOpenChannel={admin} />}
 
       <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
         {[

@@ -26,7 +26,7 @@ export const canUseStudio = (role: string | null | undefined) => !isGuestView(ro
 
 /** Paths the guest view may not open: Studio, Data, a new trade and the engine / studio data APIs. The Overview
  *  section (Grades, Assets, Trades, Backtest) is open to guests read-only; asset pages are masked. */
-const BLOCKED = [/^\/studio(\/|$)/, /^\/trades\/new\/?$/, /^\/data(\/|$)/, /^\/api\/engine(\/|$)/, /^\/api\/studio-db(\/|$)/];
+const BLOCKED = [/^\/alerts(\/|$)/, /^\/studio(\/|$)/, /^\/trades\/new\/?$/, /^\/data(\/|$)/, /^\/api\/engine(\/|$)/, /^\/api\/studio-db(\/|$)/];
 export const blockedForGuest = (path: string) => BLOCKED.some((re) => re.test(path));
 
 /** Component names hidden from guests: "Indicator 1", "Indicator 2", ... in the pipeline's order. */
